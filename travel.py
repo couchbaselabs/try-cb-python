@@ -231,9 +231,7 @@ class UserView(FlaskView):
                                'context': 'Update document ' + userdockey}
 
                 except CouchbaseDataError as e:
-                    for key, result in e.all_results.items():
-                        if not result.success:
-                            abortmsg(409, "User flights upsert failed")
+                    abortmsg(409, "User flights upsert failed")
 
                 response = make_response(jsonify(resjson))
                 return response
