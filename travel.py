@@ -11,7 +11,7 @@ from flask_classy import FlaskView, route
 from couchbase.bucket import Bucket
 from couchbase.n1ql import N1QLQuery
 from couchbase.exceptions import NotFoundError, CouchbaseNetworkError, \
-    CouchbaseTransientError, CouchbaseDataError
+    CouchbaseTransientError, CouchbaseDataError, SubdocPathNotFoundError
 import couchbase.fulltext as FT
 import couchbase.subdocument as SD
 
@@ -124,18 +124,17 @@ class UserView(FlaskView):
         userdockey = make_user_key(user)
 
         try:
-            doc = db.get(userdockey)
-            if 'password' in doc.value:
-                print("doc pass: {}, supplied: {}".format(
-                    doc.value['password'], password))
-                if doc.value['password'] != password:
-                    return abortmsg(401, "Password does not match")
-                else:
-                    token = jwt.encode({'user': user}, 'cbtravelsample')
-                    return jsonify({'data': {'token': token}})
+            doc_pass = db.retrieve_in(userdockey, 'password')[0]
+            print("doc pass: {}, supplied: {}".format(doc_pass, password))
+            if doc_pass != password:
+                return abortmsg(401, "Password does not match")
             else:
-                print("Password for user {} item does not exist".format(
-                    userdockey))
+                token = jwt.encode({'user': user}, 'cbtravelsample')
+                return jsonify({'data': {'token': token}})
+
+        except SubdocPathNotFoundError:
+            print("Password for user {} item does not exist".format(
+                userdockey))
         except NotFoundError:
             print("User {} item does not exist".format(userdockey))
         except CouchbaseTransientError:
