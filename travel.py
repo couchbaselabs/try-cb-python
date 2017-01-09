@@ -182,21 +182,16 @@ class UserView(FlaskView):
                 return abortmsg(401, 'Username does not match token username')
 
             try:
-                doc = db.get(userdockey)
-                if 'password' in doc.value:
-                    if doc.value['password'] != password:
-                        return abortmsg(401, "Password does not match")
-                    else:
-                        # Password match..
-                        userrec = doc.value
-                        if 'flights' not in userrec:
-                            userrec["flights"] = []
-                        flights = userrec["flights"]
-                        respjson = jsonify({'data': flights})
-                        response = make_response(respjson)
-                        return response
-                else:
+                subdoc = db.retrieve_in(userdockey, 'password', 'flights')
+                if not subdoc.exists('password'):
                     return abortmsg(500, "Password for user does not exist")
+                if subdoc['password'] != password:
+                    return abortmsg(401, "Password does not match")
+
+                flights = subdoc.get('flights', [])
+                respjson = jsonify({'data': flights})
+                response = make_response(respjson)
+                return response
             except NotFoundError:
                 return abortmsg(500, "User does not exist")
 
