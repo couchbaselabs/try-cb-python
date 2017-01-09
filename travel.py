@@ -69,6 +69,8 @@ def crossdomain(origin=None, methods=None, headers=None,
     return decorator
 
 
+def make_user_key(username):
+    return 'user::' + username
 
 
 class Airport(View):
@@ -163,7 +165,7 @@ class UserView(FlaskView):
         req = request.get_json()
         user = req['user'].lower()
         password = req['password']
-        userdockey = 'user::' + user
+        userdockey = make_user_key(user)
 
         try:
             doc = db.get(userdockey)
@@ -196,11 +198,10 @@ class UserView(FlaskView):
         password = req['password']
         # user = request.args['user'].lower()
         # password = hashlib.md5(request.args['password']).hexdigest()
-        userdockey = 'user::' + user
         userrec = {'username': user, 'password': password}
 
         try:
-            db.upsert(userdockey, userrec)
+            db.upsert(make_user_key(user), userrec)
             token = jwt.encode({'user': user}, 'cbtravelsample')
             respjson = jsonify({'data': {'token': token}})
         except CouchbaseDataError as e:
@@ -220,7 +221,7 @@ class UserView(FlaskView):
             req = request.get_json()
             user = req['user'].lower()
             password = req['password']
-            userdockey = 'user::' + user
+            userdockey = make_user_key(user)
 
             if username != user:
                 return abortmsg(401, 'Username does not match token username')
@@ -250,7 +251,7 @@ class UserView(FlaskView):
             req = request.get_json()
             for r in req['flights']:
                 print(r)
-            userdockey = 'user::' + username
+            userdockey = make_user_key(username)
 
             token = jwt.encode({'user': username}, 'cbtravelsample')
             bearer = request.headers['Authentication'].split(" ")[1]
