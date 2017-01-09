@@ -257,18 +257,19 @@ class HotelView(FlaskView):
 
         results = []
         for row in q:
-            subdoc = db.lookup_in(row['id'], SD.get('country'), SD.get('city'),
-                                  SD.get('state'), SD.get('address'),
-                                  SD.get('name'), SD.get('description'))
+            subdoc = db.retrieve_in(row['id'], 'country', 'city', 'state',
+                                    'address', 'name', 'description')
             # SubdocResult<rc=0x0, key=u'hotel_25167', cas=0xb0c156f90001, specs=(Spec<GET, 'country'>, Spec<GET, 'city'>, Spec<GET, 'state'>, Spec<GET,
             # 'address'>, Spec<GET, 'name'>, Spec<GET, 'description'>), results=[(0, u'United States'), (0, u'San Diego'), (0, u'California'), (0, u'1
             # Market Place'), (0, u'Manchester Grand Hyatt'), (0, u'This hotel has over 1600 rooms, making it the largest hotel in San Diego. Located ne
             # xt to the Convention Center, consisting of two towers that are connected on the bottom four floors.')]>
 
             subresults = {'name': subdoc['name'],
-                          'address': subdoc['address'] + ', ' + subdoc[
-                              'city'] + ', ' + subdoc['country'],
-                          'description': subdoc['description']}
+                          'description': subdoc['description'],
+                          'address': ', '.join((
+                              subdoc['address'], subdoc['city'],
+                              subdoc['state'], subdoc['country']))
+                          }
             results.append(subresults)
 
         response = {'data': results}
