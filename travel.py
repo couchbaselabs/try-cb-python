@@ -218,26 +218,16 @@ class UserView(FlaskView):
             newflights = request.get_json()['flights'][0]
 
             try:
-                doc = db.get(userdockey)
-                userrec = doc.value
-                if 'flights' not in userrec:
-                    userrec["flights"] = []
-
-                userrec["flights"].append(newflights)
-                try:
-                    db.upsert(userdockey, userrec)
-                    print("Upsert: " + str(userrec))
-                    resjson = {'data': {'added': newflights},
-                               'context': 'Update document ' + userdockey}
-
-                except CouchbaseDataError as e:
-                    abortmsg(409, "User flights upsert failed")
-
-                response = make_response(jsonify(resjson))
-                return response
-
+                db.mutate_in(userdockey,
+                             SD.array_append('flights',
+                                             newflights, create_parents=True))
+                resjson = {'data': {'added': newflights},
+                           'context': 'Update document ' + userdockey}
+                return make_response(jsonify(resjson))
             except NotFoundError:
                 return abortmsg(500, "User does not exist")
+            except CouchbaseDataError:
+                abortmsg(409, "Couldn't update flights")
 
 
 class HotelView(FlaskView):
