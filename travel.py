@@ -171,7 +171,6 @@ class UserView(FlaskView):
     def userflights(self, username):
         print("request: " + request.method)
         if request.method == 'GET':
-            print('userflights: get')
             # TODO implement JWT check?
             req = request.get_json()
             user = req['user'].lower()
@@ -196,8 +195,6 @@ class UserView(FlaskView):
                 return abortmsg(500, "User does not exist")
 
         elif request.method == 'POST':
-            print('userflights: post')
-
             req = request.get_json()
             for r in req['flights']:
                 print(r)
