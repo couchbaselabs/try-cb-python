@@ -38,7 +38,6 @@ class Airport(View):
     @crossdomain(origin='*', headers='content-type')
     def findall(self):
         """Returns list of matching airports and the source query"""
-        print("Airport findall")
         querystr = request.args['search'].lower()
         queryprep = "SELECT airportname FROM `travel-sample` WHERE "
         if len(querystr) == 3:
@@ -125,7 +124,6 @@ class UserView(FlaskView):
 
         try:
             doc_pass = db.retrieve_in(userdockey, 'password')[0]
-            print("doc pass: {}, supplied: {}".format(doc_pass, password))
             if doc_pass != password:
                 return abortmsg(401, "Password does not match")
             else:
@@ -169,26 +167,17 @@ class UserView(FlaskView):
     @route('/<username>/flights', methods=['GET', 'POST', 'OPTIONS'])
     @crossdomain(origin='*', headers='content-type')
     def userflights(self, username):
-        print("request: " + request.method)
         if request.method == 'GET':
-            # TODO implement JWT check?
-            req = request.get_json()
-            user = req['user'].lower()
-            password = req['password']
-            userdockey = make_user_key(user)
-
-            if username != user:
+            token = jwt.encode({'user': username}, 'cbtravelsample')
+            bearer = request.headers['Authentication'].split(" ")[1]
+            if token != bearer:
                 return abortmsg(401, 'Username does not match token username')
-
+                
             try:
-                subdoc = db.retrieve_in(userdockey, 'password', 'flights')
-                if not subdoc.exists('password'):
-                    return abortmsg(500, "Password for user does not exist")
-                if subdoc['password'] != password:
-                    return abortmsg(401, "Password does not match")
-
+                userdockey = make_user_key(username)
+                subdoc = db.retrieve_in(userdockey, 'flights')
                 flights = subdoc.get('flights', [])
-                respjson = jsonify({'data': flights})
+                respjson = jsonify({'data': flights[1]})
                 response = make_response(respjson)
                 return response
             except NotFoundError:
@@ -196,8 +185,6 @@ class UserView(FlaskView):
 
         elif request.method == 'POST':
             req = request.get_json()
-            for r in req['flights']:
-                print(r)
             userdockey = make_user_key(username)
 
             token = jwt.encode({'user': username}, 'cbtravelsample')
@@ -226,7 +213,7 @@ class HotelView(FlaskView):
 
     @route('/<description>/<location>/', methods=['GET'])
     def findall(self, description, location):
-        # Requires FTS index called 'hotels', but there is already travel-search index?
+        # Requires FTS index called 'hotels'
         # TODO auto create index if missing
         qp = FT.ConjunctionQuery(FT.TermQuery(term='hotel', field='type'))
         if location != '*':
@@ -246,24 +233,25 @@ class HotelView(FlaskView):
                 ))
 
         q = db.search('hotels', qp, limit=100)
-        # {u'sort': [u'_score'], u'index': u'hotels_42f1b46e30915726_b7ff6b68', u'score': 2.1213794760780034, u'id': u'hotel_25167', u'locations': {
-        # u'city': {u'san': [{u'start': 0, u'end': 3, u'pos': 1, u'array_positions': None}]}, u'type': {u'hotel': [{u'start': 0, u'end': 5, u'pos':
-        # 1, u'array_positions': None}]}, u'name': {u'hyatt': [{u'start': 17, u'end': 22, u'pos': 3, u'array_positions': None}]}}}
-
         results = []
         for row in q:
             subdoc = db.retrieve_in(row['id'], 'country', 'city', 'state',
                                     'address', 'name', 'description')
-            # SubdocResult<rc=0x0, key=u'hotel_25167', cas=0xb0c156f90001, specs=(Spec<GET, 'country'>, Spec<GET, 'city'>, Spec<GET, 'state'>, Spec<GET,
-            # 'address'>, Spec<GET, 'name'>, Spec<GET, 'description'>), results=[(0, u'United States'), (0, u'San Diego'), (0, u'California'), (0, u'1
-            # Market Place'), (0, u'Manchester Grand Hyatt'), (0, u'This hotel has over 1600 rooms, making it the largest hotel in San Diego. Located ne
-            # xt to the Convention Center, consisting of two towers that are connected on the bottom four floors.')]>
+            if subdoc['state'] == None:
+                addrstate = "none"
+            else:
+                addrstate = subdoc['state']
+                
+            if subdoc['address'] == None:
+                addr = ""
+            else:
+                addr = subdoc['address']
 
             subresults = {'name': subdoc['name'],
                           'description': subdoc['description'],
                           'address': ', '.join((
-                              subdoc['address'], subdoc['city'],
-                              subdoc['state'], subdoc['country']))
+                              addr, subdoc['city'],
+                              addrstate, subdoc['country']))
                           }
             results.append(subresults)
 
