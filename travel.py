@@ -142,8 +142,6 @@ class UserView(FlaskView):
         req = request.get_json()
         user = req['user'].lower()
         password = req['password']
-        # user = request.args['user'].lower()
-        # password = hashlib.md5(request.args['password']).hexdigest()
         userrec = {'username': user, 'password': password}
 
         try:
@@ -280,4 +278,4 @@ def connect_db():
 db = connect_db()
 
 if __name__ == "__main__":
-    app.run(debug=False, host='0.0.0.0', port=8080)
+    app.run(debug=False, host='localhost', port=8080)
