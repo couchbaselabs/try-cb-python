@@ -149,9 +149,7 @@ class UserView(FlaskView):
             token = jwt.encode({'user': user}, 'cbtravelsample')
             respjson = jsonify({'data': {'token': token}})
         except CouchbaseDataError as e:
-            for result in e.all_results.items():
-                if not result.success:
-                    abort(409)
+            abort(409)
         response = make_response(respjson)
         return response
 
