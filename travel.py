@@ -15,8 +15,6 @@ from couchbase.exceptions import NotFoundError, CouchbaseNetworkError, \
 import couchbase.fulltext as FT
 import couchbase.subdocument as SD
 
-from crossdomain_helper import crossdomain
-
 CONNSTR = 'couchbase://localhost/travel-sample'
 PASSWORD = ''
 
@@ -31,11 +29,6 @@ def make_user_key(username):
 
 class Airport(View):
     """Airport class for airport objects in the database"""
-
-    # @app.route('/api/airports?search=<search>')
-    # @route('/airports?search=<search>', methods=['GET','OPTIONS'])
-    # @route is defined explicitly as a add_route way below...
-    @crossdomain(origin='*', headers='content-type')
     def findall(self):
         """Returns list of matching airports and the source query"""
         querystr = request.args['search'].lower()
@@ -65,11 +58,8 @@ class Airport(View):
 
 class FlightPathsView(FlaskView):
     """ FlightPath class for computed flights between two airports FAA codes"""
-
-    # GET /api/flightPaths/{from}/{to}?leave=mm/dd/YYYY
-    # http://localhost:5000/api/flightpaths/Nome/City?leave=01/01/2016
+    
     @route('/<fromloc>/<toloc>', methods=['GET', 'OPTIONS'])
-    @crossdomain(origin='*', headers='content-type')
     def findall(self, fromloc, toloc):
         """
         Return flights information, cost and more for a given flight time
@@ -115,7 +105,6 @@ class UserView(FlaskView):
     """Class for storing user related information and their carts"""
 
     @route('/login', methods=['POST', 'OPTIONS'])
-    @crossdomain(origin='*', headers='content-type')
     def login(self):
         req = request.get_json()
         user = req['user'].lower()
@@ -144,7 +133,6 @@ class UserView(FlaskView):
         return jsonify({'data': {'token': token}})
 
     @route('/signup', methods=['POST', 'OPTIONS'])
-    @crossdomain(origin='*', headers='content-type')
     def signup(self):
         req = request.get_json()
         user = req['user'].lower()
@@ -165,14 +153,13 @@ class UserView(FlaskView):
         return response
 
     @route('/<username>/flights', methods=['GET', 'POST', 'OPTIONS'])
-    @crossdomain(origin='*', headers='content-type')
     def userflights(self, username):
         if request.method == 'GET':
             token = jwt.encode({'user': username}, 'cbtravelsample')
             bearer = request.headers['Authentication'].split(" ")[1]
             if token != bearer:
                 return abortmsg(401, 'Username does not match token username')
-                
+
             try:
                 userdockey = make_user_key(username)
                 subdoc = db.retrieve_in(userdockey, 'flights')
