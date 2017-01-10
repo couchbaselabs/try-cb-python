@@ -225,15 +225,10 @@ class HotelView(FlaskView):
         for row in q:
             subdoc = db.retrieve_in(row['id'], 'country', 'city', 'state',
                                     'address', 'name', 'description')
-            if subdoc['state'] == None:
-                addrstate = "none"
-            else:
-                addrstate = subdoc['state']
-                
-            if subdoc['address'] == None:
-                addr = ""
-            else:
-                addr = subdoc['address']
+
+            # Get the fields from the document, or set the defaults:
+            addrstate = subdoc.get('state', 'none')
+            addr = subdoc.get('address', '')
 
             subresults = {'name': subdoc['name'],
                           'description': subdoc['description'],
