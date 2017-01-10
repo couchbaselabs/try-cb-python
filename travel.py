@@ -4,7 +4,7 @@ from random import random
 import jwt  # from PyJWT
 
 from flask import Flask, request, jsonify, abort
-from flask import make_response
+from flask import make_response, redirect
 from flask.views import View
 from flask_classy import FlaskView, route
 
@@ -19,6 +19,11 @@ CONNSTR = 'couchbase://localhost/travel-sample'
 PASSWORD = ''
 
 app = Flask(__name__, static_url_path='/static')
+
+@app.route('/')
+@app.route('/static/')
+def index():
+    return redirect("/static/index.html", code=302)
 
 app.config.from_object(__name__)
 
@@ -58,7 +63,7 @@ class Airport(View):
 
 class FlightPathsView(FlaskView):
     """ FlightPath class for computed flights between two airports FAA codes"""
-    
+
     @route('/<fromloc>/<toloc>', methods=['GET', 'OPTIONS'])
     def findall(self, fromloc, toloc):
         """
