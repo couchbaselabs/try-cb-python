@@ -224,7 +224,7 @@ class UserView(FlaskView):
 class HotelView(FlaskView):
     """Class for storing Hotel search related information"""
 
-    @route('/<description>/<location>', methods=['GET'], strict_slashes=False)
+    @route('/<description>/<location>/', methods=['GET'])
     def findall(self, description, location):
         # Requires FTS index called 'hotels', but there is already travel-search index?
         # TODO auto create index if missing
