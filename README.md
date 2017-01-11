@@ -1,7 +1,7 @@
 # Couchbase Python travel-sample Application REST Backend
 This is a sample application for getting started with Couchbase Server and the Python SDK. 
-The application runs a single page UI for demonstrating SQL for Documents (N1QL), Sub-document requests and Full Text Search (FTS) querying capabilities. 
-It uses Couchbase Server together with Python Flask web platform, Angular2 and Bootstrap.
+The application runs a single page web UI for demonstrating SQL for Documents (N1QL), Sub-document requests and Full Text Search (FTS) querying capabilities. 
+It uses Couchbase Server together with the Python Flask web platform, Angular2 and Bootstrap.
 
 The application is a flight planner that allows the user to search for and select a flight route (including the return flight) based on airports and dates. 
 Airport selection is done dynamically using an angular autocomplete box bound to N1QL queries on the server side. After selecting a date, it then searches 
@@ -23,7 +23,7 @@ To download the application you can either download [the archive](https://github
 $ git clone https://github.com/couchbaselabs/try-cb-python.git
 ```
 
-The application uses several Python libraries that need to be installed, this are listed in _requirements.txt_ and can be automatically loaded using _pip_ command:
+The application uses several Python libraries that need to be installed, this are listed in _requirements.txt_ and can be automatically loaded using the _pip_ command:
 ```
 $ pip install -r requirements.txt
 ```
@@ -33,12 +33,12 @@ It will tell you the port on _localhost_ to goto in your web browser:
 
 ```
 $ python travel.py
- * Running on http://0.0.0.0:8080/ (Press CTRL+C to quit)
+ * Running on http://localhost:8080/ (Press CTRL+C to quit)
 ```
 
 To end the application press CONTROL+C in the terminal.
 
 ## Configuration Options
 
-By default the application will connect to the Couchbase Server on http://127.0.0.1:8091 and use the _travel-sample_ bucket. 
+By default the application will connect to the Couchbase Server on http://localhost:8091 and use the _travel-sample_ bucket. 
 It will however separate user account data into the _default_ bucket.  These options can be modified in `travel.py`.
