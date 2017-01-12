@@ -172,7 +172,6 @@ class UserView(FlaskView):
                 return abortmsg(500, "User does not exist")
 
         elif request.method == 'POST':
-            req = request.get_json()
             userdockey = make_user_key(username)
 
             token = jwt.encode({'user': username}, 'cbtravelsample')
@@ -226,17 +225,11 @@ class HotelView(FlaskView):
             subdoc = db.retrieve_in(row['id'], 'country', 'city', 'state',
                                     'address', 'name', 'description')
 
-            # Get the fields from the document, or set the defaults:
-            addrstate = subdoc.get('state', 'none')
-            addr = subdoc.get('address', '')
-
-            subresults = {'name': subdoc['name'],
-                          'description': subdoc['description'],
-                          'address': ', '.join((
-                              addr, subdoc['city'],
-                              addrstate, subdoc['country']))
-                          }
-            results.append(subresults)
+        # Get the fields from the document, if they exist
+        addr = ', '.join(x for x in (
+            subdoc.get(y)[1] for y in ('address', 'city', 'state', 'country')) if x)
+        subresults = {'name': subdoc['name'], 'description': subdoc['description'], 'address': addr}
+        results.append(subresults)
 
         response = {'data': results}
         return jsonify(response)
