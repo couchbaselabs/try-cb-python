@@ -27,13 +27,13 @@ def index():
 
 app.config.from_object(__name__)
 
-
 def make_user_key(username):
     return 'user::' + username
 
 
 class Airport(View):
     """Airport class for airport objects in the database"""
+
     def findall(self):
         """Returns list of matching airports and the source query"""
         querystr = request.args['search'].lower()
@@ -111,6 +111,7 @@ class UserView(FlaskView):
 
     @route('/login', methods=['POST', 'OPTIONS'])
     def login(self):
+        """Login an existing user"""
         req = request.get_json()
         user = req['user'].lower()
         password = req['password']
@@ -139,6 +140,7 @@ class UserView(FlaskView):
 
     @route('/signup', methods=['POST', 'OPTIONS'])
     def signup(self):
+        """Signup a new user"""
         req = request.get_json()
         user = req['user'].lower()
         password = req['password']
@@ -155,6 +157,7 @@ class UserView(FlaskView):
 
     @route('/<username>/flights', methods=['GET', 'POST', 'OPTIONS'])
     def userflights(self, username):
+        """List the flights that have been reserved by a user"""
         if request.method == 'GET':
             token = jwt.encode({'user': username}, 'cbtravelsample')
             bearer = request.headers['Authentication'].split(" ")[1]
@@ -200,6 +203,7 @@ class HotelView(FlaskView):
 
     @route('/<description>/<location>/', methods=['GET'])
     def findall(self, description, location):
+        """Find hotels using full text search"""
         # Requires FTS index called 'hotels'
         # TODO auto create index if missing
         qp = FT.ConjunctionQuery(FT.TermQuery(term='hotel', field='type'))
