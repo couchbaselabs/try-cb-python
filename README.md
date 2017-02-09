@@ -13,6 +13,7 @@ for applicable air flight routes from a previously populated database. An additi
 The following pieces need to be in place in order to run the application.
 
 * Couchbase Server 4.5 or later with the travel-sample bucket setup
+* Couchbase C Library - [libcouchbase](https://developer.couchbase.com/documentation/server/current/sdk/c/start-using-sdk.html)
 * Full text search index on travel-sample bucket called 'hotels'
 * Python 2.7 or greater
 
