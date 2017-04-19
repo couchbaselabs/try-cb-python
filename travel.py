@@ -15,8 +15,11 @@ from couchbase.exceptions import NotFoundError, CouchbaseNetworkError, \
 import couchbase.fulltext as FT
 import couchbase.subdocument as SD
 
-CONNSTR = 'couchbase://localhost/travel-sample'
-PASSWORD = ''
+# Username and Password must now be defined (v5.0+)
+# User must have role that allows Bucket and data read/write
+# User must role must allow Text Search and Query access
+CONNSTR = 'couchbase://localhost/travel-sample?username=admin'
+PASSWORD = 'admin123'
 
 app = Flask(__name__, static_url_path='/static')
 
