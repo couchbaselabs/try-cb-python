@@ -12,10 +12,11 @@ for applicable air flight routes from a previously populated database. An additi
 ## Prerequisites
 The following pieces need to be in place in order to run the application.
 
-* Couchbase Server 4.5 or later with the travel-sample bucket setup
+* Couchbase Server 5.0 or later with the travel-sample bucket setup
 * Couchbase C Library - [libcouchbase](https://developer.couchbase.com/documentation/server/current/sdk/c/start-using-sdk.html)
 * Full text search index on travel-sample bucket called 'hotels'
 * Python 2.7 or greater
+* libcouchbase system library 2.7.4+
 
 ## Running the application
 To download the application you can either download [the archive](https://github.com/couchbaselabs/try-cb-python/archive/master.zip) or clone the repository:
@@ -28,6 +29,8 @@ The application uses several Python libraries that need to be installed, this ar
 ```
 $ pip install -r requirements.txt
 ```
+
+Update the _travel.py_ file to reflect the username and password you require.
 
 Launch the application by running the _travel.py_ file from a terminal.
 It will tell you the port on _localhost_ to goto in your web browser:
