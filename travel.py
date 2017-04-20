@@ -15,11 +15,19 @@ from couchbase.exceptions import NotFoundError, CouchbaseNetworkError, \
 import couchbase.fulltext as FT
 import couchbase.subdocument as SD
 
-# Username and Password must now be defined (v5.0+)
-# User must have role that allows Bucket and data read/write
-# User must role must allow Text Search and Query access
+# For Couchbase Serer 5.0 there must be a username and password
+# User must have full access to read/write bucket/data and
+# Read access for Query and Search
+# CONNSTR = 'couchbase://localhost/travel-sample?username=admin' 
+# PASSWORD = 'admin123'
+
 CONNSTR = 'couchbase://localhost/travel-sample?username=admin'
 PASSWORD = 'admin123'
+
+# For Couchbase Server 4.6 the travel-sample bucket does not
+# require username and password
+# CONNSTR = 'couchbase://localhost/travel-sample'
+# PASSWORD = ''
 
 app = Flask(__name__, static_url_path='/static')
 
@@ -163,7 +171,7 @@ class UserView(FlaskView):
         """List the flights that have been reserved by a user"""
         if request.method == 'GET':
             token = jwt.encode({'user': username}, 'cbtravelsample')
-            bearer = request.headers['Authentication'].split(" ")[1]
+            bearer = request.headers['Authorization'].split(" ")[1]
             if token != bearer:
                 return abortmsg(401, 'Username does not match token username')
 
@@ -181,7 +189,7 @@ class UserView(FlaskView):
             userdockey = make_user_key(username)
 
             token = jwt.encode({'user': username}, 'cbtravelsample')
-            bearer = request.headers['Authentication'].split(" ")[1]
+            bearer = request.headers['Authorization'].split(" ")[1]
 
             if token != bearer:
                 return abortmsg(401, 'Username does not match token username')
@@ -232,11 +240,11 @@ class HotelView(FlaskView):
             subdoc = db.retrieve_in(row['id'], 'country', 'city', 'state',
                                     'address', 'name', 'description')
 
-        # Get the fields from the document, if they exist
-        addr = ', '.join(x for x in (
-            subdoc.get(y)[1] for y in ('address', 'city', 'state', 'country')) if x)
-        subresults = {'name': subdoc['name'], 'description': subdoc['description'], 'address': addr}
-        results.append(subresults)
+            # Get the fields from the document, if they exist
+            addr = ', '.join(x for x in (
+                subdoc.get(y)[1] for y in ('address', 'city', 'state', 'country')) if x)
+            subresults = {'name': subdoc['name'], 'description': subdoc['description'], 'address': addr}
+            results.append(subresults)
 
         response = {'data': results}
         return jsonify(response)
