@@ -1,3 +1,5 @@
+_For Couchbase Server 5.0 see [this branch](https://github.com/couchbaselabs/try-cb-python/tree/5.0) for latest changes to authentication_
+
 # Couchbase Python travel-sample Application REST Backend
 This is a sample application for getting started with Couchbase Server and the Python SDK. 
 The application runs a single page web UI for demonstrating SQL for Documents (N1QL), Sub-document requests and Full Text Search (FTS) querying capabilities. 
