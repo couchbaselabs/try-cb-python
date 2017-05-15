@@ -18,11 +18,12 @@ import couchbase.subdocument as SD
 # For Couchbase Serer 5.0 there must be a username and password
 # User must have full access to read/write bucket/data and
 # Read access for Query and Search
+# Cluster Administrator user may be used
 # CONNSTR = 'couchbase://localhost/travel-sample?username=admin' 
 # PASSWORD = 'admin123'
 
-CONNSTR = 'couchbase://localhost/travel-sample?username=admin'
-PASSWORD = 'admin123'
+CONNSTR = 'couchbase://localhost/travel-sample?username=Administrator'
+PASSWORD = 'password'
 
 # For Couchbase Server 4.6 the travel-sample bucket does not
 # require username and password
