@@ -15,7 +15,7 @@ from couchbase.exceptions import NotFoundError, CouchbaseNetworkError, \
 import couchbase.fulltext as FT
 import couchbase.subdocument as SD
 
-# For Couchbase Serer 5.0 there must be a username and password
+# For Couchbase Server 5.0 there must be a username and password
 # User must have full access to read/write bucket/data and
 # Read access for Query and Search
 # Cluster Administrator user may be used
