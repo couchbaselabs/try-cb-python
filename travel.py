@@ -2,6 +2,7 @@ from datetime import datetime
 import math
 from random import random
 import jwt  # from PyJWT
+import argparse
 
 from flask import Flask, request, jsonify, abort
 from flask import make_response, redirect
@@ -29,6 +30,20 @@ PASSWORD = 'password'
 # require username and password
 # CONNSTR = 'couchbase://localhost/travel-sample'
 # PASSWORD = ''
+parser = argparse.ArgumentParser()
+parser.add_argument('-c', '--cluster', help='Connection String i.e. localhost:8091')
+parser.add_argument('-u', '--user', help='User with access to bucket')
+parser.add_argument('-p', '--password', help='Password of user with access to bucket')
+args = parser.parse_args()
+
+if args.cluster:
+        CONNSTR = "couchbase://" + args.cluster + "/travel-sample"
+if args.user:
+        CONNSTR = CONNSTR + "?username=" + args.user
+if args.password:
+        PASSWORD = args.password
+
+print "Connecting to:" + CONNSTR
 
 app = Flask(__name__, static_url_path='/static')
 
@@ -280,4 +295,4 @@ def connect_db():
 db = connect_db()
 
 if __name__ == "__main__":
-    app.run(debug=False, host='localhost', port=8080)
+    app.run(debug=False, host='0.0.0.0', port=8080)
