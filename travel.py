@@ -23,7 +23,7 @@ import couchbase.subdocument as SD
 # CONNSTR = 'couchbase://localhost/travel-sample?username=admin' 
 # PASSWORD = 'admin123'
 
-CONNSTR = 'couchbase://localhost/travel-sample?username=Administrator'
+DEFAULT_USER="Administrator"
 PASSWORD = 'password'
 
 # For Couchbase Server 4.6 the travel-sample bucket does not
@@ -38,8 +38,12 @@ args = parser.parse_args()
 
 if args.cluster:
         CONNSTR = "couchbase://" + args.cluster + "/travel-sample"
+else: 
+        CONNSTR = "couchbase://localhost/travel-sample"
 if args.user:
         CONNSTR = CONNSTR + "?username=" + args.user
+else:
+        CONNSTR = CONNSTR + "?username=" + DEFAULT_USER
 if args.password:
         PASSWORD = args.password
 
