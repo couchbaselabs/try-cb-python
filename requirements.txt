@@ -11,4 +11,3 @@ pytz==2016.10
 six==1.10.0
 Werkzeug==0.11.15
 zope.interface==4.3.3
-flask-cors==3.0.3
