@@ -4,7 +4,7 @@ from random import random
 import jwt  # from PyJWT
 import argparse
 
-from flask import Flask, request, jsonify, abort
+from flask import Flask, request, jsonify, abort, logging
 from flask import make_response, redirect
 from flask.views import View
 from flask_classy import FlaskView, route
@@ -40,7 +40,7 @@ args = parser.parse_args()
 if args.cluster:
         CONNSTR = "couchbase://" + args.cluster + "/travel-sample"
 else: 
-        CONNSTR = "couchbase://localhost/travel-sample"
+        CONNSTR = "couchbase://10.112.170.101/travel-sample"
 if args.user:
         CONNSTR = CONNSTR + "?username=" + args.user
 else:
@@ -48,10 +48,11 @@ else:
 if args.password:
         PASSWORD = args.password
 
-print "Connecting to:" + CONNSTR
+print "Connecting to: " + CONNSTR
 
 app = Flask(__name__, static_url_path='/static')
 CORS(app)
+logging.getLogger('flask_cors').level = logging.DEBUG
 
 @app.route('/')
 @app.route('/static/')
