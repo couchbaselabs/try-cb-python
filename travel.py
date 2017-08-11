@@ -4,11 +4,11 @@ from random import random
 import jwt  # from PyJWT
 import argparse
 
-from flask import Flask, request, jsonify, abort, logging
+from flask import Flask, request, jsonify, abort
 from flask import make_response, redirect
 from flask.views import View
 from flask_classy import FlaskView, route
-from flask_cors import CORS, cross_origin
+from flask_cors import CORS
 
 from couchbase.bucket import Bucket
 from couchbase.n1ql import N1QLQuery
@@ -51,8 +51,7 @@ if args.password:
 print "Connecting to: " + CONNSTR
 
 app = Flask(__name__, static_url_path='/static')
-CORS(app)
-logging.getLogger('flask_cors').level = logging.DEBUG
+CORS(app, supports_credentials=True)
 
 @app.route('/')
 @app.route('/static/')
