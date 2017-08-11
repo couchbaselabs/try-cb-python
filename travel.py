@@ -8,6 +8,7 @@ from flask import Flask, request, jsonify, abort
 from flask import make_response, redirect
 from flask.views import View
 from flask_classy import FlaskView, route
+from flask_cors import CORS, cross_origin
 
 from couchbase.bucket import Bucket
 from couchbase.n1ql import N1QLQuery
@@ -23,7 +24,7 @@ import couchbase.subdocument as SD
 # CONNSTR = 'couchbase://localhost/travel-sample?username=admin' 
 # PASSWORD = 'admin123'
 
-DEFAULT_USER="Administrator"
+DEFAULT_USER = "Administrator"
 PASSWORD = 'password'
 
 # For Couchbase Server 4.6 the travel-sample bucket does not
@@ -50,6 +51,7 @@ if args.password:
 print "Connecting to:" + CONNSTR
 
 app = Flask(__name__, static_url_path='/static')
+CORS(app)
 
 @app.route('/')
 @app.route('/static/')
@@ -95,7 +97,7 @@ class Airport(View):
 class FlightPathsView(FlaskView):
     """ FlightPath class for computed flights between two airports FAA codes"""
 
-    @route('/<fromloc>/<toloc>', methods=['GET', 'OPTIONS'])
+    @app.route('/<fromloc>/<toloc>', methods=['GET', 'OPTIONS'])
     def findall(self, fromloc, toloc):
         """
         Return flights information, cost and more for a given flight time
@@ -140,7 +142,7 @@ class FlightPathsView(FlaskView):
 class UserView(FlaskView):
     """Class for storing user related information and their carts"""
 
-    @route('/login', methods=['POST', 'OPTIONS'])
+    @app.route('/login', methods=['POST', 'OPTIONS'])
     def login(self):
         """Login an existing user"""
         req = request.get_json()
@@ -169,7 +171,7 @@ class UserView(FlaskView):
         token = jwt.encode({'user': user}, 'cbtravelsample')
         return jsonify({'data': {'token': token}})
 
-    @route('/signup', methods=['POST', 'OPTIONS'])
+    @app.route('/signup', methods=['POST', 'OPTIONS'])
     def signup(self):
         """Signup a new user"""
         req = request.get_json()
@@ -186,7 +188,7 @@ class UserView(FlaskView):
         response = make_response(respjson)
         return response
 
-    @route('/<username>/flights', methods=['GET', 'POST', 'OPTIONS'])
+    @app.route('/<username>/flights', methods=['GET', 'POST', 'OPTIONS'])
     def userflights(self, username):
         """List the flights that have been reserved by a user"""
         if request.method == 'GET':
@@ -232,7 +234,7 @@ class UserView(FlaskView):
 class HotelView(FlaskView):
     """Class for storing Hotel search related information"""
 
-    @route('/<description>/<location>/', methods=['GET'])
+    @app.route('/<description>/<location>/', methods=['GET'])
     def findall(self, description, location):
         """Find hotels using full text search"""
         # Requires FTS index called 'hotels'
