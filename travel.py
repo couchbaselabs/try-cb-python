@@ -8,7 +8,6 @@ from flask import Flask, request, jsonify, abort
 from flask import make_response, redirect
 from flask.views import View
 from flask_classy import FlaskView, route
-from flask_cors import CORS, cross_origin
 
 from couchbase.bucket import Bucket
 from couchbase.n1ql import N1QLQuery
@@ -51,7 +50,6 @@ if args.password:
 print "Connecting to: " + CONNSTR
 
 app = Flask(__name__, static_url_path='/static')
-CORS(app, supports_credentials=True)
 
 @app.route('/')
 @app.route('/static/')
@@ -143,7 +141,6 @@ class UserView(FlaskView):
     """Class for storing user related information and their carts"""
 
     @route('/login', methods=['POST', 'OPTIONS'])
-    @cross_origin()
     def login(self):
         """Login an existing user"""
         req = request.get_json()
@@ -173,7 +170,6 @@ class UserView(FlaskView):
         return jsonify({'data': {'token': token}})
 
     @route('/signup', methods=['POST', 'OPTIONS'])
-    @cross_origin()
     def signup(self):
         """Signup a new user"""
         req = request.get_json()
@@ -191,7 +187,6 @@ class UserView(FlaskView):
         return response
 
     @route('/<username>/flights', methods=['GET', 'POST', 'OPTIONS'])
-    @cross_origin()
     def userflights(self, username):
         """List the flights that have been reserved by a user"""
         if request.method == 'GET':
@@ -304,4 +299,4 @@ def connect_db():
 db = connect_db()
 
 if __name__ == "__main__":
-    app.run(debug=True, host='0.0.0.0', port=8080)
+    app.run(debug=False, host='0.0.0.0', port=8080)
