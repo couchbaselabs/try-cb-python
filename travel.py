@@ -23,7 +23,7 @@ import couchbase.subdocument as SD
 # CONNSTR = 'couchbase://localhost/travel-sample?username=admin' 
 # PASSWORD = 'admin123'
 
-DEFAULT_USER="Administrator"
+DEFAULT_USER = "Administrator"
 PASSWORD = 'password'
 
 # For Couchbase Server 4.6 the travel-sample bucket does not
@@ -47,7 +47,7 @@ else:
 if args.password:
         PASSWORD = args.password
 
-print "Connecting to:" + CONNSTR
+print "Connecting to: " + CONNSTR
 
 app = Flask(__name__, static_url_path='/static')
 
