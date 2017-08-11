@@ -97,7 +97,7 @@ class Airport(View):
 class FlightPathsView(FlaskView):
     """ FlightPath class for computed flights between two airports FAA codes"""
 
-    @app.route('/<fromloc>/<toloc>', methods=['GET', 'OPTIONS'])
+    @route('/<fromloc>/<toloc>', methods=['GET', 'OPTIONS'])
     def findall(self, fromloc, toloc):
         """
         Return flights information, cost and more for a given flight time
@@ -142,7 +142,7 @@ class FlightPathsView(FlaskView):
 class UserView(FlaskView):
     """Class for storing user related information and their carts"""
 
-    @app.route('/login', methods=['POST', 'OPTIONS'])
+    @route('/login', methods=['POST', 'OPTIONS'])
     def login(self):
         """Login an existing user"""
         req = request.get_json()
@@ -171,7 +171,7 @@ class UserView(FlaskView):
         token = jwt.encode({'user': user}, 'cbtravelsample')
         return jsonify({'data': {'token': token}})
 
-    @app.route('/signup', methods=['POST', 'OPTIONS'])
+    @route('/signup', methods=['POST', 'OPTIONS'])
     def signup(self):
         """Signup a new user"""
         req = request.get_json()
@@ -188,7 +188,7 @@ class UserView(FlaskView):
         response = make_response(respjson)
         return response
 
-    @app.route('/<username>/flights', methods=['GET', 'POST', 'OPTIONS'])
+    @route('/<username>/flights', methods=['GET', 'POST', 'OPTIONS'])
     def userflights(self, username):
         """List the flights that have been reserved by a user"""
         if request.method == 'GET':
@@ -234,7 +234,7 @@ class UserView(FlaskView):
 class HotelView(FlaskView):
     """Class for storing Hotel search related information"""
 
-    @app.route('/<description>/<location>/', methods=['GET'])
+    @route('/<description>/<location>/', methods=['GET'])
     def findall(self, description, location):
         """Find hotels using full text search"""
         # Requires FTS index called 'hotels'
