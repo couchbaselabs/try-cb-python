@@ -263,7 +263,7 @@ class HotelView(FlaskView):
             # Get the fields from the document, if they exist
             addr = ', '.join(x for x in (
                 subdoc.get(y)[1] for y in ('address', 'city', 'state', 'country')) if x)
-            subresults = {'name': subdoc['name'], 'description': subdoc['description'], 'address': addr}
+            subresults = {'name': subdoc['name'], 'description': subdoc['description'], 'address': addr,'title':subdoc['title'],'phone':subdoc['phone'],'free_internet':subdoc['free_internet'],'pets_ok':subdoc['pets_ok'],'free_parking':subdoc['free_parking'],'email':subdoc['email'],'free_breakfast':subdoc['free_breakfast']}
             results.append(subresults)
 
         response = {'data': results}
