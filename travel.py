@@ -258,7 +258,7 @@ class HotelView(FlaskView):
         results = []
         for row in q:
             subdoc = db.retrieve_in(row['id'], 'country', 'city', 'state',
-                                    'address', 'name', 'description')
+                                    'address', 'name', 'description','title','phone','free_internet','pets_ok','free_parking','email','free_breakfast')
 
             # Get the fields from the document, if they exist
             addr = ', '.join(x for x in (
