@@ -26,7 +26,6 @@
  },
  "sourceType": "couchbase",
  "sourceName": "travel-sample",
- "sourceUUID": "d90bb0a2f83a0c9b44edded81eb65214",
  "sourceParams": {},
  "planParams": {
   "maxPartitionsPerPIndex": 171,
