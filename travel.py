@@ -20,7 +20,7 @@ import couchbase.subdocument as SD
 # User must have full access to read/write bucket/data and
 # Read access for Query and Search
 # Cluster Administrator user may be used
-# CONNSTR = 'couchbase://localhost/travel-sample?username=admin' 
+# CONNSTR = 'couchbase://localhost/travel-sample?username=admin'
 # PASSWORD = 'admin123'
 
 DEFAULT_USER = "Administrator"
@@ -38,8 +38,8 @@ args = parser.parse_args()
 
 if args.cluster:
         CONNSTR = "couchbase://" + args.cluster + "/travel-sample"
-else: 
-        CONNSTR = "couchbase://docker.for.mac.localhost/travel-sample"
+else:
+        CONNSTR = "couchbase://localhost/travel-sample"
 if args.user:
         CONNSTR = CONNSTR + "?username=" + args.user
 else:
