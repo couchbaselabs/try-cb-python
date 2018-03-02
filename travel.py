@@ -39,7 +39,7 @@ args = parser.parse_args()
 if args.cluster:
         CONNSTR = "couchbase://" + args.cluster + "/travel-sample"
 else:
-        CONNSTR = "couchbase://cb-server/travel-sample"
+        CONNSTR = "couchbase://localhost/travel-sample"
 if args.user:
         CONNSTR = CONNSTR + "?username=" + args.user
 else:
