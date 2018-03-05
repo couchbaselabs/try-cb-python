@@ -1,5 +1,5 @@
 click==6.7
-couchbase==2.2.3
+couchbase>=2.2.3
 DateTime==4.1.1
 Flask==0.12
 Flask-Classy==0.6.10
