@@ -15,7 +15,7 @@ RUN apt-get install lsb-release --assume-yes
 
 # Install Python and Basic Python Tools
 RUN apt-get update && apt-get install -y python python-dev python-distribute python-pip
-RUN wget http://packages.couchbase.com/releases/couchbase-release/couchbase-release-1.0-2-amd64.deb && apt install ./couchbase-release-1.0-2-amd64.deb
+RUN wget http://packages.couchbase.com/releases/couchbase-release/couchbase-release-1.0-2-amd64.deb && apt-get install ./couchbase-release-1.0-2-amd64.deb
 
 RUN apt-get update && apt-get install libcouchbase-dev build-essential python-dev python-pip --assume-yes
 
