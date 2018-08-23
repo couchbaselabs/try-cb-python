@@ -1,0 +1,40 @@
+= Docker Image Instructions
+
+== Building
+
+. Build image.
++
+[source,bash]
+----
+$ cd try-cb-python
+$ docker build -t try-cb-python .
+----
+. Run image in a new container.
++
+[source,bash]
+----
+$ docker run -it -p 8080:8080 try-cb-python
+----
+
+== Push to DockerHub
+
+. Print list of images.
++
+[source,bash]
+----
+$ docker images
+----
+. Tag your image by providing a name and tag name.
++
+[source,bash]
+----
+$ docker tag 8e35290abb3b connectsv/try-cb-python:5.5.1-server
+----
+. Push the image to a DockerHub repository.
++
+[source,bash]
+----
+$ docker push connectsv/try-cb-python:5.5.1-server
+----
+
+
