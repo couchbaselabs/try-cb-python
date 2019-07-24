@@ -1,5 +1,6 @@
 from datetime import datetime
-import math, json
+import math
+import json
 from random import random
 import jwt  # from PyJWT
 import argparse
@@ -13,6 +14,8 @@ from couchbase.cluster import Cluster
 from couchbase_core.cluster import PasswordAuthenticator
 from couchbase_core.n1ql import N1QLQuery
 import couchbase_core.subdocument as SD
+import couchbase_core.fulltext as FT
+from couchbase.exceptions import *
 
 # For Couchbase Server 5.0 there must be a username and password
 # User must have full access to read/write bucket/data and
@@ -24,10 +27,6 @@ import couchbase_core.subdocument as SD
 DEFAULT_USER = "Administrator"
 PASSWORD = 'password'
 
-# For Couchbase Server 4.6 the travel-sample bucket does not
-# require username and password
-# CONNSTR = 'couchbase://localhost/travel-sample'
-# PASSWORD = ''
 parser = argparse.ArgumentParser()
 parser.add_argument('-c', '--cluster', help='Connection String i.e. localhost:8091')
 parser.add_argument('-u', '--user', help='User with access to bucket')
@@ -44,7 +43,7 @@ if args.user and args.password:
 else:
     authenticator = PasswordAuthenticator(DEFAULT_USER, PASSWORD)
 
-print ("Connecting to: " + CONNSTR)
+print("Connecting to: " + CONNSTR)
 
 app = Flask(__name__, static_url_path='/static')
 
@@ -81,7 +80,7 @@ class Airport(View):
 
         res = cluster.query(query)
         airportslist = [x for x in res.rows()]
-        context = [queryprep]
+        context = [query]
         response = make_response( jsonify({"data": airportslist, "context": context}) )
         return response
 
@@ -105,9 +104,9 @@ class FlightPathsView(FlaskView):
                     WHERE airportname = $1 \
                     UNION SELECT faa as toAirport,geo FROM `travel-sample` \
                     WHERE airportname = $2"
-
-        res = db.n1ql_query(N1QLQuery(queryprep, fromloc, toloc))
+        res = db.query(N1QLQuery(queryprep, fromloc, toloc))
         flightpathlist = [x for x in res]
+        context = [queryprep]
 
         # Extract the 'toAirport' and 'fromAirport' values.
         queryto = next(x['toAirport']
@@ -124,7 +123,7 @@ class FlightPathsView(FlaskView):
 
         # http://localhost:5000/api/flightpaths/Nome/Teller%20Airport?leave=01/01/2016
         # should produce query with OME, TLA faa codes
-        resroutes = db.n1ql_query(
+        resroutes = db.query(
             N1QLQuery(queryroutes, queryto, queryfrom, queryleave))
         routelist = []
         for x in resroutes:
@@ -147,10 +146,10 @@ class UserView(FlaskView):
         userdockey = make_user_key(user)
 
         try:
-            print(userdockey)
-            print(tuple(SD.get('password')))
-            doc_pass = db.lookup_in(userdockey, (SD.get('password'),))
-            print(json.dumps(doc_pass))
+            doc_pass = db.lookup_in(userdockey, (
+                SD.get('password'),
+            )).content_as[str](0)
+            
             if doc_pass != password:
                 return abortmsg(401, "Password does not match")
             else:
@@ -206,10 +205,8 @@ class UserView(FlaskView):
                 # return response
 
                 userdockey = make_user_key(username)
-                rv = db.lookup_in(userdockey,
-                                  SD.get('flights'))
-                print(rv)
-                respjson = jsonify({'data': rv[0][1]})
+                rv = db.lookup_in(userdockey, (SD.get('flights'),))
+                respjson = jsonify({'data': rv.content_as[list](0)})
                 response = make_response(respjson)
                 return response
 
@@ -228,9 +225,8 @@ class UserView(FlaskView):
             newflights = request.get_json()['flights'][0]
 
             try:
-                db.mutate_in(userdockey,
-                             SD.array_append('flights',
-                                             newflights, create_parents=True))
+                db.mutate_in(userdockey, (SD.array_append('flights',
+                                          newflights, create_parents=True),))
                 resjson = {'data': {'added': newflights},
                            'context': 'Update document ' + userdockey}
                 return make_response(jsonify(resjson))
@@ -267,14 +263,16 @@ class HotelView(FlaskView):
 
         q = db.search('hotels', qp, limit=100)
         results = []
+        cols = ['address', 'city', 'state', 'country', 'name', 'description',
+                'title', 'phone', 'free_internet', 'pets_ok', 'free_parking',
+                'email', 'free_breakfast']
         for row in q:
-            subdoc = db.retrieve_in(row['id'], 'country', 'city', 'state',
-                                    'address', 'name', 'description','title','phone','free_internet','pets_ok','free_parking','email','free_breakfast')
-
-            # Get the fields from the document, if they exist
-            addr = ', '.join(x for x in (
-                subdoc.get(y)[1] for y in ('address', 'city', 'state', 'country')) if x)
-            subresults = {'name': subdoc['name'], 'description': subdoc['description'], 'address': addr,'title':subdoc['title'],'phone':subdoc['phone'],'free_internet':subdoc['free_internet'],'pets_ok':subdoc['pets_ok'],'free_parking':subdoc['free_parking'],'email':subdoc['email'],'free_breakfast':subdoc['free_breakfast'],'id':row['id']}
+            subdoc = db.lookup_in(row['id'], tuple(SD.get(x) for x in cols))
+            # Get the address fields from the document, if they exist
+            addr = ', '.join(subdoc.content_as[str](c) for c in cols[:4]
+                             if subdoc.content_as[str](c) != "None")
+            subresults = dict((c, subdoc.content_as[str](c)) for c in cols[4:])
+            subresults['address'] = addr
             results.append(subresults)
 
         response = {'data': results}
