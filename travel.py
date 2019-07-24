@@ -1,5 +1,5 @@
 from datetime import datetime
-import math
+import math, json
 from random import random
 import jwt  # from PyJWT
 import argparse
@@ -9,12 +9,10 @@ from flask import make_response, redirect
 from flask.views import View
 from flask_classy import FlaskView, route
 
-from couchbase.bucket import Bucket
-from couchbase.n1ql import N1QLQuery
-from couchbase.exceptions import NotFoundError, CouchbaseNetworkError, \
-    CouchbaseTransientError, CouchbaseDataError, SubdocPathNotFoundError
-import couchbase.fulltext as FT
-import couchbase.subdocument as SD
+from couchbase.cluster import Cluster
+from couchbase_core.cluster import PasswordAuthenticator
+from couchbase_core.n1ql import N1QLQuery
+import couchbase_core.subdocument as SD
 
 # For Couchbase Server 5.0 there must be a username and password
 # User must have full access to read/write bucket/data and
@@ -37,17 +35,16 @@ parser.add_argument('-p', '--password', help='Password of user with access to bu
 args = parser.parse_args()
 
 if args.cluster:
-        CONNSTR = "couchbase://" + args.cluster + "/travel-sample"
+        CONNSTR = "couchbase://" + args.cluster
 else:
-        CONNSTR = "couchbase://localhost/travel-sample"
-if args.user:
-        CONNSTR = CONNSTR + "?username=" + args.user
+        CONNSTR = "couchbase://localhost"
+if args.user and args.password:
+    print((args.user, args.password))
+    authenticator = PasswordAuthenticator(args.user, args.password)
 else:
-        CONNSTR = CONNSTR + "?username=" + DEFAULT_USER
-if args.password:
-        PASSWORD = args.password
+    authenticator = PasswordAuthenticator(DEFAULT_USER, PASSWORD)
 
-print "Connecting to: " + CONNSTR
+print ("Connecting to: " + CONNSTR)
 
 app = Flask(__name__, static_url_path='/static')
 
@@ -79,12 +76,13 @@ class Airport(View):
             queryprep += "LOWER(airportname) LIKE $1"
             queryargs = ['%' + querystr + '%']
 
-        res = db.n1ql_query(N1QLQuery(queryprep, *queryargs))
-        airportslist = [x for x in res]
-        context = [queryprep]
+        # TODO: Use a N1QLQuery object here, not this hack
+        query = queryprep.replace("$1",*['"'+a+'"' for a in queryargs])
 
-        response = make_response(
-            jsonify({"data": airportslist, "context": context}))
+        res = cluster.query(query)
+        airportslist = [x for x in res.rows()]
+        context = [queryprep]
+        response = make_response( jsonify({"data": airportslist, "context": context}) )
         return response
 
     def dispatch_request(self):
@@ -149,12 +147,15 @@ class UserView(FlaskView):
         userdockey = make_user_key(user)
 
         try:
-            doc_pass = db.retrieve_in(userdockey, 'password')[0]
+            print(userdockey)
+            print(tuple(SD.get('password')))
+            doc_pass = db.lookup_in(userdockey, (SD.get('password'),))
+            print(json.dumps(doc_pass))
             if doc_pass != password:
                 return abortmsg(401, "Password does not match")
             else:
                 token = jwt.encode({'user': user}, 'cbtravelsample')
-                return jsonify({'data': {'token': token}})
+                return jsonify({'data': {'token': str(token)}})
 
         except SubdocPathNotFoundError:
             print("Password for user {} item does not exist".format(
@@ -167,7 +168,7 @@ class UserView(FlaskView):
             print("Network error received - is Couchbase Server running on this host?")
 
         token = jwt.encode({'user': user}, 'cbtravelsample')
-        return jsonify({'data': {'token': token}})
+        return jsonify({'data': {'token': str(token)}})
 
     @route('/signup', methods=['POST', 'OPTIONS'])
     def signup(self):
@@ -180,8 +181,9 @@ class UserView(FlaskView):
         try:
             db.upsert(make_user_key(user), userrec)
             token = jwt.encode({'user': user}, 'cbtravelsample')
-            respjson = jsonify({'data': {'token': token}})
-        except CouchbaseDataError as e:
+            respjson = jsonify({'data': {'token': str(token)}})
+        except Exception as e:
+            print(e)
             abort(409)
         response = make_response(respjson)
         return response
@@ -192,16 +194,25 @@ class UserView(FlaskView):
         if request.method == 'GET':
             token = jwt.encode({'user': username}, 'cbtravelsample')
             bearer = request.headers['Authorization'].split(" ")[1]
-            if token != bearer:
+            if str(token) != bearer:
                 return abortmsg(401, 'Username does not match token username')
 
             try:
+                # userdockey = make_user_key(username)
+                # subdoc = db.retrieve_in(userdockey, 'flights')
+                # flights = subdoc.get('flights', [])
+                # respjson = jsonify({'data': flights[1]})
+                # response = make_response(respjson)
+                # return response
+
                 userdockey = make_user_key(username)
-                subdoc = db.retrieve_in(userdockey, 'flights')
-                flights = subdoc.get('flights', [])
-                respjson = jsonify({'data': flights[1]})
+                rv = db.lookup_in(userdockey,
+                                  SD.get('flights'))
+                print(rv)
+                respjson = jsonify({'data': rv[0][1]})
                 response = make_response(respjson)
                 return response
+
             except NotFoundError:
                 return abortmsg(500, "User does not exist")
 
@@ -211,7 +222,7 @@ class UserView(FlaskView):
             token = jwt.encode({'user': username}, 'cbtravelsample')
             bearer = request.headers['Authorization'].split(" ")[1]
 
-            if token != bearer:
+            if str(token) != bearer:
                 return abortmsg(401, 'Username does not match token username')
 
             newflights = request.get_json()['flights'][0]
@@ -293,10 +304,13 @@ app.add_url_rule('/api/airports', view_func=Airport.as_view('airports'),
 
 
 def connect_db():
-    return Bucket(CONNSTR, password=PASSWORD)
+    print(CONNSTR, authenticator)
+    cluster = Cluster(CONNSTR, Cluster.ClusterOptions(authenticator))
+    bucket = cluster.bucket('travel-sample')
+    return (cluster, bucket, bucket.default_collection())
 
 
-db = connect_db()
+cluster, bucket, db = connect_db()
 
 if __name__ == "__main__":
     app.run(debug=False, host='0.0.0.0', port=8080)
