@@ -75,8 +75,8 @@ class Airport(View):
             queryprep += "LOWER(airportname) LIKE $1"
             queryargs = ['%' + querystr + '%']
 
-        res = cluster.query(N1QLQuery(queryprep, *queryargs))
-        airportslist = [x for x in res.rows()]
+        res = db.query(N1QLQuery(queryprep, *queryargs))
+        airportslist = [x for x in res]
         context = [queryprep]
         response = make_response(jsonify({"data": airportslist, "context": context}))
         return response
@@ -302,10 +302,10 @@ def connect_db():
     print(CONNSTR, authenticator)
     cluster = Cluster(CONNSTR, Cluster.ClusterOptions(authenticator))
     bucket = cluster.bucket('travel-sample')
-    return (cluster, bucket, bucket.default_collection())
+    return bucket.default_collection()
 
 
-cluster, bucket, db = connect_db()
+db = connect_db()
 
 if __name__ == "__main__":
     app.run(debug=False, host='0.0.0.0', port=8080)
