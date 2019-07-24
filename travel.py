@@ -75,13 +75,10 @@ class Airport(View):
             queryprep += "LOWER(airportname) LIKE $1"
             queryargs = ['%' + querystr + '%']
 
-        # TODO: Use a N1QLQuery object here, not this hack
-        query = queryprep.replace("$1",*['"'+a+'"' for a in queryargs])
-
-        res = cluster.query(query)
+        res = cluster.query(N1QLQuery(queryprep, *queryargs))
         airportslist = [x for x in res.rows()]
-        context = [query]
-        response = make_response( jsonify({"data": airportslist, "context": context}) )
+        context = [queryprep]
+        response = make_response(jsonify({"data": airportslist, "context": context}))
         return response
 
     def dispatch_request(self):
