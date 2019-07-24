@@ -31,18 +31,26 @@ To download the application you can either download [the archive](https://github
 $ git clone https://github.com/couchbaselabs/try-cb-python.git
 ```
 
+Set up an additional bucket which utilises collections using the `create-collections.sh` script:
+```
+$ sh create-collections.sh localhost Administrator password
+```
+
 The application uses several Python libraries that need to be installed, this are listed in _requirements.txt_ and can be automatically loaded using the _pip_ command:
 ```
 $ pip install -r requirements.txt
 ```
 
-Update the _travel.py_ file to reflect the username and password you require.
+Update the _travel.py_ file to reflect the username and password you require, or specify with commandline arguments at runtime:
+```
+$ python3 travel.py -c localhost -u Administrator -p password
+```
 
 Launch the application by running the _travel.py_ file from a terminal.
 It will tell you the port on _localhost_ to goto in your web browser:
 
 ```
-$ python travel.py
+$ python3 travel.py
  * Running on http://localhost:8080/ (Press CTRL+C to quit)
 ```
 
