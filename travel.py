@@ -1,6 +1,7 @@
 from datetime import datetime
 import math
 import json
+import uuid
 from random import random
 import jwt  # from PyJWT
 import argparse
@@ -47,6 +48,7 @@ print("Connecting to: " + CONNSTR)
 
 app = Flask(__name__, static_url_path='/static')
 
+
 @app.route('/')
 @app.route('/static/')
 def index():
@@ -54,8 +56,9 @@ def index():
 
 app.config.from_object(__name__)
 
+
 def make_user_key(username):
-    return 'user::' + username
+    return username.lower()
 
 
 class Airport(View):
@@ -143,7 +146,7 @@ class UserView(FlaskView):
         userdockey = make_user_key(user)
 
         try:
-            doc_pass = db.lookup_in(userdockey, (
+            doc_pass = users.lookup_in(userdockey, (
                 SD.get('password'),
             )).content_as[str](0)
             
@@ -162,9 +165,10 @@ class UserView(FlaskView):
             print("Transient error received - has Couchbase stopped running?")
         except CouchbaseNetworkError:
             print("Network error received - is Couchbase Server running on this host?")
-
-        token = jwt.encode({'user': user}, 'cbtravelsample')
-        return jsonify({'data': {'token': str(token)}})
+        else:
+            token = jwt.encode({'user': user}, 'cbtravelsample')
+            return jsonify({'data': {'token': str(token)}})
+        return abortmsg(500, "Failed to get user data")
 
     @route('/signup', methods=['POST', 'OPTIONS'])
     def signup(self):
@@ -175,7 +179,7 @@ class UserView(FlaskView):
         userrec = {'username': user, 'password': password}
 
         try:
-            db.upsert(make_user_key(user), userrec)
+            users.upsert(make_user_key(user), userrec)
             token = jwt.encode({'user': user}, 'cbtravelsample')
             respjson = jsonify({'data': {'token': str(token)}})
         except Exception as e:
@@ -194,16 +198,14 @@ class UserView(FlaskView):
                 return abortmsg(401, 'Username does not match token username')
 
             try:
-                # userdockey = make_user_key(username)
-                # subdoc = db.retrieve_in(userdockey, 'flights')
-                # flights = subdoc.get('flights', [])
-                # respjson = jsonify({'data': flights[1]})
-                # response = make_response(respjson)
-                # return response
-
                 userdockey = make_user_key(username)
-                rv = db.lookup_in(userdockey, (SD.get('flights'),))
-                respjson = jsonify({'data': rv.content_as[list](0)})
+                rv = users.lookup_in(userdockey, (SD.get('flights'),))
+                booked_flights = rv.content_as[list](0)
+                rows = []
+                for key in booked_flights:
+                    rows.append(flights.get(key).content_as[dict])
+                print(rows)
+                respjson = jsonify({"data": rows})
                 response = make_response(respjson)
                 return response
 
@@ -219,18 +221,25 @@ class UserView(FlaskView):
             if str(token) != bearer:
                 return abortmsg(401, 'Username does not match token username')
 
-            newflights = request.get_json()['flights'][0]
+            newflight = request.get_json()['flights'][0]
+            flight_id = str(uuid.uuid4())
 
             try:
-                db.mutate_in(userdockey, (SD.array_append('flights',
-                                          newflights, create_parents=True),))
-                resjson = {'data': {'added': newflights},
+                    flights.upsert(flight_id, newflight)
+            except Exception as e:
+                print(e)
+                return abortmsg(500, "Failed to add flight data")
+
+            try:
+                users.mutate_in(userdockey, (SD.array_append('flights',
+                                          flight_id, create_parents=True),))
+                resjson = {'data': {'added': newflight},
                            'context': 'Update document ' + userdockey}
                 return make_response(jsonify(resjson))
             except NotFoundError:
                 return abortmsg(500, "User does not exist")
             except CouchbaseDataError:
-                abortmsg(409, "Couldn't update flights")
+                return abortmsg(409, "Couldn't update flights")
 
 
 class HotelView(FlaskView):
@@ -301,11 +310,21 @@ app.add_url_rule('/api/airports', view_func=Airport.as_view('airports'),
 def connect_db():
     print(CONNSTR, authenticator)
     cluster = Cluster(CONNSTR, Cluster.ClusterOptions(authenticator))
-    bucket = cluster.bucket('travel-sample')
-    return bucket.default_collection()
+    static_bucket = cluster.bucket('travel-sample')
+    db_collection = static_bucket.default_collection()
+    try:
+        dynamic_bucket = cluster.bucket('default')
+    except BucketMissingException as e:
+        print("Collections bucket not found.")
+        print("Have you initialized it with the create-collections.sh script?")
+        raise e  # Continue raising error so application halts
+    scope = dynamic_bucket.scope('larson-travel')
+    user_collection = scope.collection('users')
+    flight_collection = scope.collection('flights')
+    return db_collection, user_collection, flight_collection
 
 
-db = connect_db()
+db, users, flights = connect_db()
 
 if __name__ == "__main__":
     app.run(debug=False, host='0.0.0.0', port=8080)
