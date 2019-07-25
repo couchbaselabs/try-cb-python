@@ -47,7 +47,7 @@ else:
 if args.password:
         PASSWORD = args.password
 
-print "Connecting to: " + CONNSTR
+print("Connecting to: " + CONNSTR)
 
 app = Flask(__name__, static_url_path='/static')
 
@@ -154,7 +154,7 @@ class UserView(FlaskView):
                 return abortmsg(401, "Password does not match")
             else:
                 token = jwt.encode({'user': user}, 'cbtravelsample')
-                return jsonify({'data': {'token': token}})
+                return jsonify({'data': {'token': str(token)}})
 
         except SubdocPathNotFoundError:
             print("Password for user {} item does not exist".format(
@@ -167,7 +167,7 @@ class UserView(FlaskView):
             print("Network error received - is Couchbase Server running on this host?")
 
         token = jwt.encode({'user': user}, 'cbtravelsample')
-        return jsonify({'data': {'token': token}})
+        return jsonify({'data': {'token': str(token)}})
 
     @route('/signup', methods=['POST', 'OPTIONS'])
     def signup(self):
@@ -180,7 +180,7 @@ class UserView(FlaskView):
         try:
             db.upsert(make_user_key(user), userrec)
             token = jwt.encode({'user': user}, 'cbtravelsample')
-            respjson = jsonify({'data': {'token': token}})
+            respjson = jsonify({'data': {'token': str(token)}})
         except CouchbaseDataError as e:
             abort(409)
         response = make_response(respjson)
@@ -192,7 +192,7 @@ class UserView(FlaskView):
         if request.method == 'GET':
             token = jwt.encode({'user': username}, 'cbtravelsample')
             bearer = request.headers['Authorization'].split(" ")[1]
-            if token != bearer:
+            if str(token) != bearer:
                 return abortmsg(401, 'Username does not match token username')
 
             try:
@@ -211,7 +211,7 @@ class UserView(FlaskView):
             token = jwt.encode({'user': username}, 'cbtravelsample')
             bearer = request.headers['Authorization'].split(" ")[1]
 
-            if token != bearer:
+            if str(token) != bearer:
                 return abortmsg(401, 'Username does not match token username')
 
             newflights = request.get_json()['flights'][0]
