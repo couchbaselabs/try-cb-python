@@ -29,7 +29,7 @@ DEFAULT_USER = "Administrator"
 PASSWORD = 'password'
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-c', '--cluster', help='Connection String i.e. localhost:8091')
+parser.add_argument('-c', '--cluster', help='Connection String i.e. localhost')
 parser.add_argument('-u', '--user', help='User with access to bucket')
 parser.add_argument('-p', '--password', help='Password of user with access to bucket')
 args = parser.parse_args()
@@ -313,12 +313,12 @@ def connect_db():
     static_bucket = cluster.bucket('travel-sample')
     db_collection = static_bucket.default_collection()
     try:
-        dynamic_bucket = cluster.bucket('default')
+        dynamic_bucket = cluster.bucket('travel-users')
     except BucketMissingException as e:
         print("Collections bucket not found.")
         print("Have you initialized it with the create-collections.sh script?")
         raise e  # Continue raising error so application halts
-    scope = dynamic_bucket.scope('larson-travel')
+    scope = dynamic_bucket.scope('userData')
     user_collection = scope.collection('users')
     flight_collection = scope.collection('flights')
     return db_collection, user_collection, flight_collection
