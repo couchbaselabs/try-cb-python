@@ -19,7 +19,7 @@ The following pieces need to be in place in order to run the application.
 
 - *Windows Users* :This library is bundled with the Python SDK installer. The installer can be downloaded from [Pypi](https://pypi.python.org/pypi/couchbase) website. Scroll to the section which lists the relevant installers
    ![](https://raw.githubusercontent.com/couchbaselabs/try-cb-python/5.0/win_py_installer.png)
-- *Other Platform Users*: Download [libcouchbase](https://developer.couchbase.com/documentation/server/current/sdk/c/start-using-sdk.html) for platform of choide
+- *Other Platform Users*: Download [libcouchbase](https://developer.couchbase.com/documentation/server/current/sdk/c/start-using-sdk.html) for your chosen platform
 * Full text search index on travel-sample bucket called 'hotels'
 * Python 3.7+
 * libcouchbase system library 2.7.4+
