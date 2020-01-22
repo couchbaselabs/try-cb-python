@@ -149,7 +149,7 @@ class UserView(FlaskView):
         password = req['password']
 
         try:
-            doc_pass = users.lookup_in(user, (
+            doc_pass = db.lookup_in(user, (
                 SD.get('password'),
             )).content_as[str](0)
             
@@ -176,7 +176,7 @@ class UserView(FlaskView):
         password = req['password']
 
         try:
-            users.upsert(user, {'username': user, 'password': password})
+            db.upsert(user, {'username': user, 'password': password})
             respjson = jsonify({'data': {'token': genToken(user)}})
             response = make_response(respjson)
             return response
@@ -196,11 +196,11 @@ class UserView(FlaskView):
 
             try:
                 userdockey = make_user_key(username)
-                rv = users.lookup_in(userdockey, (SD.get('flights'),))
+                rv = db.lookup_in(userdockey, (SD.get('flights'),))
                 booked_flights = rv.content_as[list](0)
                 rows = []
                 for key in booked_flights:
-                    rows.append(flights.get(key).content_as[dict])
+                    rows.append(db.get(key).content_as[dict])
                 print(rows)
                 respjson = jsonify({"data": rows})
                 response = make_response(respjson)
@@ -220,13 +220,13 @@ class UserView(FlaskView):
             flight_id = str(uuid.uuid4())
 
             try:
-                    flights.upsert(flight_id, newflight)
+                    db.upsert(flight_id, newflight)
             except Exception as e:
                 print(e)
                 return abortmsg(500, "Failed to add flight data")
 
             try:
-                users.mutate_in(user, (SD.array_append('flights',
+                db.mutate_in(user, (SD.array_append('flights',
                                           flight_id, create_parents=True),))
                 resjson = {'data': {'added': newflight},
                            'context': 'Update document ' + user}
@@ -321,13 +321,10 @@ def connect_db():
         print("Collections bucket not found.")
         print("Have you initialized it with the create-collections.sh script?")
         raise e  # Continue raising error so application halts
-    scope = dynamic_bucket.scope('userData')
-    user_collection = scope.collection('users')
-    flight_collection = scope.collection('flights')
-    return db_collection, user_collection, flight_collection
+    return db_collection
 
 
-db, users, flights = connect_db()
+db = connect_db()
 
 if __name__ == "__main__":
     app.run(debug=False, host='0.0.0.0', port=8080)
