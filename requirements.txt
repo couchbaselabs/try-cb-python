@@ -9,5 +9,5 @@ MarkupSafe==0.23
 PyJWT==1.4.2
 pytz==2016.10
 six==1.10.0
-Werkzeug==0.11.15
+Werkzeug==0.15.3
 zope.interface==4.3.3
