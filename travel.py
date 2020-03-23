@@ -6,7 +6,7 @@ from random import random
 import jwt  # from PyJWT
 import argparse
 
-from flask import Flask, request, jsonify, abort
+from flask import Flask, request, jsonify, abort, send_from_directory
 from flask import make_response, redirect
 from flask.views import View
 from flask_classy import FlaskView, route
@@ -29,7 +29,7 @@ DEFAULT_USER = "Administrator"
 PASSWORD = 'password'
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-c', '--cluster', help='Connection String i.e. localhost:8091')
+parser.add_argument('-c', '--cluster', help='Connection String i.e. localhost')
 parser.add_argument('-u', '--user', help='User with access to bucket')
 parser.add_argument('-p', '--password', help='Password of user with access to bucket')
 args = parser.parse_args()
@@ -50,9 +50,12 @@ app = Flask(__name__, static_url_path='/static')
 
 
 @app.route('/')
-@app.route('/static/')
 def index():
-    return redirect("/static/index.html", code=302)
+    return redirect("/index.html", code=302)
+
+@app.route('/<path:path>')
+def serveFiles(path):
+    return send_from_directory("static", path)
 
 app.config.from_object(__name__)
 
@@ -66,17 +69,18 @@ class Airport(View):
 
     def findall(self):
         """Returns list of matching airports and the source query"""
-        querystr = request.args['search'].lower()
+        querystr = request.args['search']
         queryprep = "SELECT airportname FROM `travel-sample` WHERE "
-        if len(querystr) == 3:
-            queryprep += "LOWER(faa) = $1"
-            queryargs = [querystr]
-        elif len(querystr) == 4:
-            queryprep += "LOWER(icao) = $1"
-            queryargs = [querystr]
+        sameCase = querystr == querystr.lower() or querystr == querystr.upper()
+        if sameCase and len(querystr) == 3:
+            queryprep += "faa = $1"
+            queryargs = [querystr.upper()]
+        elif sameCase and len(querystr) == 4:
+            queryprep += "icao = $1"
+            queryargs = [querystr.upper()]
         else:
             queryprep += "LOWER(airportname) LIKE $1"
-            queryargs = ['%' + querystr + '%']
+            queryargs = [querystr.lower() + '%']
 
         res = db.query(N1QLQuery(queryprep, *queryargs))
         airportslist = [x for x in res]
@@ -143,31 +147,25 @@ class UserView(FlaskView):
         req = request.get_json()
         user = req['user'].lower()
         password = req['password']
-        userdockey = make_user_key(user)
 
         try:
-            doc_pass = users.lookup_in(userdockey, (
+            doc_pass = users.lookup_in(user, (
                 SD.get('password'),
             )).content_as[str](0)
             
             if doc_pass != password:
                 return abortmsg(401, "Password does not match")
-            else:
-                token = jwt.encode({'user': user}, 'cbtravelsample')
-                return jsonify({'data': {'token': str(token)}})
 
         except SubdocPathNotFoundError:
-            print("Password for user {} item does not exist".format(
-                userdockey))
+            print("Password for user {} item does not exist".format(user))
         except NotFoundError:
-            print("User {} item does not exist".format(userdockey))
+            print("User {} item does not exist".format(user))
         except CouchbaseTransientError:
             print("Transient error received - has Couchbase stopped running?")
         except CouchbaseNetworkError:
             print("Network error received - is Couchbase Server running on this host?")
         else:
-            token = jwt.encode({'user': user}, 'cbtravelsample')
-            return jsonify({'data': {'token': str(token)}})
+            return jsonify({'data': {'token': genToken(user)}})
         return abortmsg(500, "Failed to get user data")
 
     @route('/signup', methods=['POST', 'OPTIONS'])
@@ -176,25 +174,24 @@ class UserView(FlaskView):
         req = request.get_json()
         user = req['user'].lower()
         password = req['password']
-        userrec = {'username': user, 'password': password}
 
         try:
-            users.upsert(make_user_key(user), userrec)
-            token = jwt.encode({'user': user}, 'cbtravelsample')
-            respjson = jsonify({'data': {'token': str(token)}})
+            users.upsert(user, {'username': user, 'password': password})
+            respjson = jsonify({'data': {'token': genToken(user)}})
+            response = make_response(respjson)
+            return response
         except Exception as e:
             print(e)
             abort(409)
-        response = make_response(respjson)
-        return response
 
     @route('/<username>/flights', methods=['GET', 'POST', 'OPTIONS'])
     def userflights(self, username):
+        user = username.lower()
+
         """List the flights that have been reserved by a user"""
         if request.method == 'GET':
-            token = jwt.encode({'user': username}, 'cbtravelsample')
-            bearer = request.headers['Authorization'].split(" ")[1]
-            if str(token) != bearer:
+            bearer = request.headers['Authorization']
+            if not auth(bearer, user):
                 return abortmsg(401, 'Username does not match token username')
 
             try:
@@ -212,13 +209,11 @@ class UserView(FlaskView):
             except NotFoundError:
                 return abortmsg(500, "User does not exist")
 
+        # """Book a new flight for a user"""
         elif request.method == 'POST':
-            userdockey = make_user_key(username)
 
-            token = jwt.encode({'user': username}, 'cbtravelsample')
-            bearer = request.headers['Authorization'].split(" ")[1]
-
-            if str(token) != bearer:
+            bearer = request.headers['Authorization']
+            if not auth(bearer, user):
                 return abortmsg(401, 'Username does not match token username')
 
             newflight = request.get_json()['flights'][0]
@@ -231,10 +226,10 @@ class UserView(FlaskView):
                 return abortmsg(500, "Failed to add flight data")
 
             try:
-                users.mutate_in(userdockey, (SD.array_append('flights',
+                users.mutate_in(user, (SD.array_append('flights',
                                           flight_id, create_parents=True),))
                 resjson = {'data': {'added': newflight},
-                           'context': 'Update document ' + userdockey}
+                           'context': 'Update document ' + user}
                 return make_response(jsonify(resjson))
             except NotFoundError:
                 return abortmsg(500, "User does not exist")
@@ -296,6 +291,14 @@ def convdate(rawdate):
     day = datetime.strptime(rawdate, '%m/%d/%Y')
     return day.weekday()
 
+JWT_SECRET = 'cbtravelsample'
+def genToken(username):
+    return jwt.encode({'user': username.lower()}, JWT_SECRET).decode("ascii")
+
+def auth(bearerHeader, username):
+    bearer = bearerHeader.split(" ")[1]
+    return username == jwt.decode(bearer, JWT_SECRET)['user']
+
 
 # Setup pluggable Flask views routing system
 HotelView.register(app, route_prefix='/api/')
@@ -313,12 +316,12 @@ def connect_db():
     static_bucket = cluster.bucket('travel-sample')
     db_collection = static_bucket.default_collection()
     try:
-        dynamic_bucket = cluster.bucket('default')
+        dynamic_bucket = cluster.bucket('travel-users')
     except BucketMissingException as e:
         print("Collections bucket not found.")
         print("Have you initialized it with the create-collections.sh script?")
         raise e  # Continue raising error so application halts
-    scope = dynamic_bucket.scope('larson-travel')
+    scope = dynamic_bucket.scope('userData')
     user_collection = scope.collection('users')
     flight_collection = scope.collection('flights')
     return db_collection, user_collection, flight_collection

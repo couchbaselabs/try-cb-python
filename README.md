@@ -14,14 +14,14 @@ for applicable air flight routes from a previously populated database. An additi
 ## Prerequisites
 The following pieces need to be in place in order to run the application.
 
-* Couchbase Server 5.0 or later with the travel-sample bucket setup
+* Couchbase Server 6.5 (Developer Preview) or later with the travel-sample bucket setup
 * Couchbase C Library -
 
 - *Windows Users* :This library is bundled with the Python SDK installer. The installer can be downloaded from [Pypi](https://pypi.python.org/pypi/couchbase) website. Scroll to the section which lists the relevant installers
    ![](https://raw.githubusercontent.com/couchbaselabs/try-cb-python/5.0/win_py_installer.png)
-- *Other Platform Users*: Download [libcouchbase](https://developer.couchbase.com/documentation/server/current/sdk/c/start-using-sdk.html) for platform of choide
+- *Other Platform Users*: Download [libcouchbase](https://developer.couchbase.com/documentation/server/current/sdk/c/start-using-sdk.html) for your chosen platform
 * Full text search index on travel-sample bucket called 'hotels'
-* Python 2.7 or greater
+* Python 3.7+
 * libcouchbase system library 2.7.4+
 
 ## Running the application
@@ -33,7 +33,7 @@ $ git clone https://github.com/couchbaselabs/try-cb-python.git
 
 Set up an additional bucket which utilises collections using the `create-collections.sh` script:
 ```
-$ sh create-collections.sh localhost Administrator password
+$ sh create-collections.sh Administrator password localhost
 ```
 
 The application uses several Python libraries that need to be installed, this are listed in _requirements.txt_ and can be automatically loaded using the _pip_ command:
