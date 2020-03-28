@@ -5,6 +5,7 @@ import uuid
 from random import random
 import jwt  # from PyJWT
 import argparse
+import requests
 
 from flask import Flask, request, jsonify, abort, send_from_directory
 from flask import make_response, redirect
@@ -37,7 +38,7 @@ args = parser.parse_args()
 if args.cluster:
         CONNSTR = "couchbase://" + args.cluster
 else:
-        CONNSTR = "couchbase://localhost"
+        CONNSTR = "couchbase://cb-server"
 if args.user and args.password:
     print((args.user, args.password))
     authenticator = PasswordAuthenticator(args.user, args.password)
@@ -61,7 +62,7 @@ app.config.from_object(__name__)
 
 
 def make_user_key(username):
-    return username.lower()
+    return 'user::' + username
 
 
 class Airport(View):
@@ -147,9 +148,10 @@ class UserView(FlaskView):
         req = request.get_json()
         user = req['user'].lower()
         password = req['password']
+        userdockey = make_user_key(user)
 
         try:
-            doc_pass = db.lookup_in(user, (
+            doc_pass = db.lookup_in(userdockey, (
                 SD.get('password'),
             )).content_as[str](0)
             
@@ -173,10 +175,16 @@ class UserView(FlaskView):
         """Signup a new user"""
         req = request.get_json()
         user = req['user'].lower()
+        userdockey = make_user_key(user)
         password = req['password']
-
+        userrec = {'username': user, 'password': password}
+        headerInfo = {'Content-type': 'application/json', 'Accept': 'application/json'}
+        sgUrl = "http://sync-gateway-travel:4985/travel-sample/_user/"
+        sgValues = json.dumps({"name" : user, "password" : password})
+        print(sgValues,userrec)
         try:
-            db.upsert(user, {'username': user, 'password': password})
+            db.upsert(userdockey, {'username': user, 'password': password})
+            sgUser = requests.post(sgUrl, headers=headerInfo, data=sgValues)
             respjson = jsonify({'data': {'token': genToken(user)}})
             response = make_response(respjson)
             return response
@@ -186,50 +194,41 @@ class UserView(FlaskView):
 
     @route('/<username>/flights', methods=['GET', 'POST', 'OPTIONS'])
     def userflights(self, username):
-        user = username.lower()
+         user = username.lower()
 
-        """List the flights that have been reserved by a user"""
-        if request.method == 'GET':
+         """List the flights that have been reserved by a user"""
+         if request.method == 'GET':
             bearer = request.headers['Authorization']
             if not auth(bearer, user):
                 return abortmsg(401, 'Username does not match token username')
 
             try:
-                userdockey = make_user_key(username)
+                userdockey = make_user_key(user)
                 rv = db.lookup_in(userdockey, (SD.get('flights'),))
                 booked_flights = rv.content_as[list](0)
-                rows = []
-                for key in booked_flights:
-                    rows.append(db.get(key).content_as[dict])
-                print(rows)
-                respjson = jsonify({"data": rows})
+                print(booked_flights)
+                respjson = jsonify({"data": booked_flights})
                 response = make_response(respjson)
                 return response
 
             except NotFoundError:
                 return abortmsg(500, "User does not exist")
 
-        # """Book a new flight for a user"""
-        elif request.method == 'POST':
+         # """Book a new flight for a user"""
+         elif request.method == 'POST':
 
             bearer = request.headers['Authorization']
             if not auth(bearer, user):
                 return abortmsg(401, 'Username does not match token username')
 
             newflight = request.get_json()['flights'][0]
-            flight_id = str(uuid.uuid4())
+            userdockey = make_user_key(user)
 
             try:
-                    db.upsert(flight_id, newflight)
-            except Exception as e:
-                print(e)
-                return abortmsg(500, "Failed to add flight data")
-
-            try:
-                db.mutate_in(user, (SD.array_append('flights',
-                                          flight_id, create_parents=True),))
+                db.mutate_in(userdockey, (SD.array_append('flights',
+                                          newflight, create_parents=True),))
                 resjson = {'data': {'added': newflight},
-                           'context': 'Update document ' + user}
+                           'context': 'Update document ' + userdockey}
                 return make_response(jsonify(resjson))
             except NotFoundError:
                 return abortmsg(500, "User does not exist")
@@ -314,14 +313,8 @@ def connect_db():
     print(CONNSTR, authenticator)
     cluster = Cluster(CONNSTR, Cluster.ClusterOptions(authenticator))
     static_bucket = cluster.bucket('travel-sample')
-    db_collection = static_bucket.default_collection()
-    try:
-        dynamic_bucket = cluster.bucket('travel-users')
-    except BucketMissingException as e:
-        print("Collections bucket not found.")
-        print("Have you initialized it with the create-collections.sh script?")
-        raise e  # Continue raising error so application halts
-    return db_collection
+    collection = static_bucket.default_collection()
+    return collection
 
 
 db = connect_db()

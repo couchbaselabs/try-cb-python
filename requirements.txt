@@ -1,5 +1,5 @@
 click==6.7
-couchbase>=3.0.0b2
+couchbase>=3.0.0b3
 DateTime==4.1.1
 Flask==0.12
 Flask-Classy==0.6.10
@@ -11,3 +11,4 @@ pytz==2016.10
 six==1.10.0
 Werkzeug==0.11.15
 zope.interface==4.3.3
+requests==2.7.0
