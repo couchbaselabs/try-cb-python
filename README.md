@@ -1,3 +1,7 @@
+*NOTE*
+This branch is for version of Travel Sample app that is compatible with travel sample mobile workshop. You can learn more about the workshop [here](https://docs.couchbase.com/tutorials/mobile-travel-sample/introduction.html)
+
+
 _For Couchbase Server 5.0 see [this branch](https://github.com/couchbaselabs/try-cb-python/tree/5.0) for latest changes to authentication_
 
 # Couchbase Python travel-sample Application REST Backend

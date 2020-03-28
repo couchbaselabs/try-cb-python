@@ -20,24 +20,7 @@ RUN wget http://packages.couchbase.com/releases/couchbase-release/couchbase-rele
 RUN wget https://packages.couchbase.com/clients/c/libcouchbase-3.0.0_ubuntu1604_xenial_amd64.tar
 RUN tar -xf libcouchbase-3.0.0_ubuntu1604_xenial_amd64.tar
 
-RUN cd libcouchbase-3.0.0_ubuntu1604_xenial_amd64 && apt install libevent-core-2.1 ./libcouchbase3_3.0.0*.deb  ./libcouchbase-dev*.deb 
-
-#RUN apt-get install libevent-core-2.1 && cd libcouchbase-3.0.0_ubuntu1604_xenial_amd64 && apt install ./libcouchbase3_3.0.0*.deb || true && dpkg -i libcouchbase3-libevent*_3.0.0*.deb || true && dpkg -i libcouchbase3-tools*_3.0.0*.deb || true && dpkg -i libcouchbase-dev*.deb || true
-
-#RUN apt-get update && apt-get install  libcouchbase-dev libcouchbase3 --assume-yes
-
-#RUN apt-get update && apt-get install libevent-core-2.1 --assume-yes
-
-
-
-#RUN cd libcouchbase-3.0.0_ubuntu1604_xenial_amd64 && pwd && ls && dpkg  -i libcouchbase3*_*.deb libcouchbase3-tools_3.0.0*.deb libcouchbase3-libevent_3.0.0*.deb libcouchbase-dev_*.deb
-
-#RUN 'dpkg -i libcouchbase-dev_3.0.0-1_amd64.deb && dpkg -i libcouchbase3{-tools,-libevent,}_3.0.0*.deb'
-
-#RUN dpkg -i libcouchbase-3.0.0_ubuntu1604_xenial_amd64/libcouchbase-dev_3.0.0-1_amd64.deb && dpkg -i libcouchbase3{-tools,-libevent,}_3.0.0*.deb
-#RUN dpkg -i libcouchbase3{-tools,-libevent,}_3.0.0*.deb libcouchbase-dev_3.0.0-1_amd64.deb
-
-#RUN apt-get update && apt-get install libcouchbase-dev build-essential python-dev python-pip --assume-yes
+RUN cd libcouchbase-3.0.0_ubuntu1604_xenial_amd64 && apt-get update && apt-get install -y  libevent-core-2.1 ./libcouchbase3_3.0.0*.deb  ./libcouchbase-dev*.deb 
 
 ADD . .
 
