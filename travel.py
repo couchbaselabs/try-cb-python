@@ -148,6 +148,7 @@ class UserView(FlaskView):
         req = request.get_json()
         user = req['user'].lower()
         password = req['password']
+        rawpassword = req['rawpassword']
         userdockey = make_user_key(user)
 
         try:
@@ -177,14 +178,20 @@ class UserView(FlaskView):
         user = req['user'].lower()
         userdockey = make_user_key(user)
         password = req['password']
-        userrec = {'username': user, 'password': password}
-        headerInfo = {'Content-type': 'application/json', 'Accept': 'application/json'}
-        sgUrl = "http://localhost:4985/travel-sample/_user/"
-        sgValues = json.dumps({"name" : user, "password" : password})
-        print(sgValues,userrec)
+        rawpassword = req['rawpassword']
+        # Create sync gateway user
+        try:
+            headerInfo = {'Content-type': 'application/json', 'Accept': 'application/json'}
+            sgUrl = "http://localhost:4985/travel-sample/_user/"
+            sgValues = json.dumps({"name" : user, "password" : rawpassword})
+            sgUser = requests.post(sgUrl, headers=headerInfo, data=sgValues)
+            print(sgValues)
+        except Exception as e:
+            print(e)
+            return abortmsg(404, 'Please check that Sync Gateway is up and running')
+        # Create user profile document in server bucket
         try:
             db.upsert(userdockey, {'username': user, 'password': password})
-            sgUser = requests.post(sgUrl, headers=headerInfo, data=sgValues)
             respjson = jsonify({'data': {'token': genToken(user)}})
             response = make_response(respjson)
             return response
