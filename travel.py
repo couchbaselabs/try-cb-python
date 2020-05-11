@@ -13,10 +13,12 @@ from flask.views import View
 from flask_classy import FlaskView, route
 
 from couchbase.cluster import Cluster
+from couchbase.cluster import ClusterOptions
 from couchbase_core.cluster import PasswordAuthenticator
-from couchbase_core.n1ql import N1QLQuery
+from couchbase.cluster import QueryOptions
+from couchbase.search import MatchQuery, SearchOptions
 import couchbase_core.subdocument as SD
-import couchbase_core.fulltext as FT
+import couchbase.search as FT
 from couchbase.exceptions import *
 
 # For Couchbase Server 5.0 there must be a username and password
@@ -70,22 +72,32 @@ class Airport(View):
 
     def findall(self):
         """Returns list of matching airports and the source query"""
+
         querystr = request.args['search']
+        queryparams = request.args['search']
         queryprep = "SELECT airportname FROM `travel-sample` WHERE "
         sameCase = querystr == querystr.lower() or querystr == querystr.upper()
         if sameCase and len(querystr) == 3:
             queryprep += "faa = $1"
             queryargs = [querystr.upper()]
+            queryparams = querystr.upper()
         elif sameCase and len(querystr) == 4:
             queryprep += "icao = $1"
             queryargs = [querystr.upper()]
+            queryparams = querystr.upper()
         else:
             queryprep += "LOWER(airportname) LIKE $1"
             queryargs = [querystr.lower() + '%']
-
-        res = db.query(N1QLQuery(queryprep, *queryargs))
+            queryparams = querystr.lower()
+        print("queryargs is ::: "+ queryparams)
+        res = cluster.query(queryprep, *queryargs)
+        print ("queryprep is :::::" + queryprep)
+        # alternate in SDK3
+        #res = cluster.query(queryprep, QueryOptions(positional_parameters=[queryparams]))
+        for row in res: print(res)
         airportslist = [x for x in res]
         context = [queryprep]
+        print (airportslist)
         response = make_response(jsonify({"data": airportslist, "context": context}))
         return response
 
@@ -109,7 +121,7 @@ class FlightPathsView(FlaskView):
                     WHERE airportname = $1 \
                     UNION SELECT faa as toAirport,geo FROM `travel-sample` \
                     WHERE airportname = $2"
-        res = db.query(N1QLQuery(queryprep, fromloc, toloc))
+        res = cluster.query(queryprep, fromloc, toloc)
         flightpathlist = [x for x in res]
         context = [queryprep]
 
@@ -128,8 +140,7 @@ class FlightPathsView(FlaskView):
 
         # http://localhost:5000/api/flightpaths/Nome/Teller%20Airport?leave=01/01/2016
         # should produce query with OME, TLA faa codes
-        resroutes = db.query(
-            N1QLQuery(queryroutes, queryto, queryfrom, queryleave))
+        resroutes = cluster.query(queryroutes, queryto, queryfrom, queryleave)
         routelist = []
         for x in resroutes:
             x['flighttime'] = math.ceil(random() * 8000)
@@ -148,7 +159,6 @@ class UserView(FlaskView):
         req = request.get_json()
         user = req['user'].lower()
         password = req['password']
-        rawpassword = req['rawpassword']
         userdockey = make_user_key(user)
 
         try:
@@ -268,13 +278,13 @@ class HotelView(FlaskView):
                     FT.MatchPhraseQuery(description, field='name')
                 ))
 
-        q = db.search('hotels', qp, limit=100)
+        q = cluster.search_query('hotels', qp, SearchOptions(limit=100))
         results = []
         cols = ['address', 'city', 'state', 'country', 'name', 'description',
                 'title', 'phone', 'free_internet', 'pets_ok', 'free_parking',
                 'email', 'free_breakfast']
-        for row in q:
-            subdoc = db.lookup_in(row['id'], tuple(SD.get(x) for x in cols))
+        for row in q.rows():
+            subdoc = db.lookup_in(row.id, tuple(SD.get(x) for x in cols))
             # Get the address fields from the document, if they exist
             addr = ', '.join(subdoc.content_as[str](c) for c in cols[:4]
                              if subdoc.content_as[str](c) != "None")
@@ -318,12 +328,13 @@ app.add_url_rule('/api/airports', view_func=Airport.as_view('airports'),
 
 def connect_db():
     print(CONNSTR, authenticator)
-    cluster = Cluster(CONNSTR, Cluster.ClusterOptions(authenticator))
+    cluster = Cluster(CONNSTR, ClusterOptions(authenticator))
     static_bucket = cluster.bucket('travel-sample')
     collection = static_bucket.default_collection()
     return collection
 
-
+cluster = Cluster(CONNSTR, ClusterOptions(authenticator))
+static_bucket = cluster.bucket('travel-sample')
 db = connect_db()
 
 if __name__ == "__main__":
