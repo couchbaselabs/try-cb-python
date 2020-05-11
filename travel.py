@@ -74,30 +74,28 @@ class Airport(View):
         """Returns list of matching airports and the source query"""
 
         querystr = request.args['search']
-        queryparams = request.args['search']
+        #queryparams = request.args['search']
         queryprep = "SELECT airportname FROM `travel-sample` WHERE "
         sameCase = querystr == querystr.lower() or querystr == querystr.upper()
         if sameCase and len(querystr) == 3:
             queryprep += "faa = $1"
             queryargs = [querystr.upper()]
-            queryparams = querystr.upper()
+            #queryparams = querystr.upper()
         elif sameCase and len(querystr) == 4:
             queryprep += "icao = $1"
             queryargs = [querystr.upper()]
-            queryparams = querystr.upper()
+            #queryparams = querystr.upper()
         else:
             queryprep += "LOWER(airportname) LIKE $1"
             queryargs = [querystr.lower() + '%']
-            queryparams = querystr.lower()
-        print("queryargs is ::: "+ queryparams)
+            #queryparams = querystr.lower()
         res = cluster.query(queryprep, *queryargs)
-        print ("queryprep is :::::" + queryprep)
         # alternate in SDK3
         #res = cluster.query(queryprep, QueryOptions(positional_parameters=[queryparams]))
-        for row in res: print(res)
+        #for row in res: print(res)
         airportslist = [x for x in res]
         context = [queryprep]
-        print (airportslist)
+        #print (airportslist)
         response = make_response(jsonify({"data": airportslist, "context": context}))
         return response
 
@@ -195,7 +193,7 @@ class UserView(FlaskView):
             sgUrl = "http://localhost:4985/travel-sample/_user/"
             sgValues = json.dumps({"name" : user, "password" : rawpassword})
             sgUser = requests.post(sgUrl, headers=headerInfo, data=sgValues)
-            print(sgValues)
+            # print(sgValues)
         except Exception as e:
             print(e)
             return abortmsg(404, 'Please check that Sync Gateway is up and running')
