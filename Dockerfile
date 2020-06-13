@@ -17,10 +17,10 @@ RUN apt-get install lsb-release --assume-yes
 RUN apt-get update && apt-get install -y python3 python3-dev python-distribute python3-pip python3-setuptools cmake
 RUN wget http://packages.couchbase.com/releases/couchbase-release/couchbase-release-1.0-6-amd64.deb && apt-get install ./couchbase-release-1.0-6-amd64.deb
 
-RUN wget https://packages.couchbase.com/clients/c/libcouchbase-3.0.0_ubuntu1604_xenial_amd64.tar
-RUN tar -xf libcouchbase-3.0.0_ubuntu1604_xenial_amd64.tar
+RUN wget https://packages.couchbase.com/clients/c/libcouchbase-3.0.1_ubuntu1604_xenial_amd64.tar
+RUN tar -xf libcouchbase-3.0.1_ubuntu1604_xenial_amd64.tar
 
-RUN cd libcouchbase-3.0.0_ubuntu1604_xenial_amd64 && apt-get update && apt-get install -y  libevent-core-2.1 ./libcouchbase3_3.0.0*.deb  ./libcouchbase-dev*.deb 
+RUN cd libcouchbase-3.0.1_ubuntu1604_xenial_amd64 && apt-get update && apt-get install -y  libevent-core-2.1 ./libcouchbase3_3.0.1*.deb  ./libcouchbase-dev*.deb 
 
 ADD . .
 
