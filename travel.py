@@ -11,11 +11,9 @@ from flask import make_response, redirect
 from flask.views import View
 from flask_classy import FlaskView, route
 
-from couchbase.cluster import Cluster
-from couchbase_core.cluster import PasswordAuthenticator
-from couchbase_core.n1ql import N1QLQuery
-import couchbase_core.subdocument as SD
-import couchbase_core.fulltext as FT
+from couchbase.cluster import Cluster, ClusterOptions, QueryOptions, PasswordAuthenticator
+import couchbase.search as FT
+import couchbase.subdocument as SD
 from couchbase.exceptions import *
 
 # For Couchbase Server 5.0 there must be a username and password
@@ -82,7 +80,7 @@ class Airport(View):
             queryprep += "LOWER(airportname) LIKE $1"
             queryargs = [querystr.lower() + '%']
 
-        res = db.query(N1QLQuery(queryprep, *queryargs))
+        res = cluster.query(queryprep, QueryOptions(positional_parameters=queryargs))
         airportslist = [x for x in res]
         context = [queryprep]
         response = make_response(jsonify({"data": airportslist, "context": context}))
@@ -108,7 +106,7 @@ class FlightPathsView(FlaskView):
                     WHERE airportname = $1 \
                     UNION SELECT faa as toAirport,geo FROM `travel-sample` \
                     WHERE airportname = $2"
-        res = db.query(N1QLQuery(queryprep, fromloc, toloc))
+        res = cluster.query(queryprep, QueryOptions(positional_parameters=[fromloc, toloc]))
         flightpathlist = [x for x in res]
         context = [queryprep]
 
@@ -127,8 +125,8 @@ class FlightPathsView(FlaskView):
 
         # http://localhost:5000/api/flightpaths/Nome/Teller%20Airport?leave=01/01/2016
         # should produce query with OME, TLA faa codes
-        resroutes = db.query(
-            N1QLQuery(queryroutes, queryto, queryfrom, queryleave))
+        resroutes = cluster.query(queryroutes,
+            QueryOptions(positional_parameters=[queryto, queryfrom, queryleave]))
         routelist = []
         for x in resroutes:
             x['flighttime'] = math.ceil(random() * 8000)
@@ -262,13 +260,13 @@ class HotelView(FlaskView):
                     FT.MatchPhraseQuery(description, field='name')
                 ))
 
-        q = db.search('hotels', qp, limit=100)
+        q = cluster.search_query('hotels', qp, limit=100)
         results = []
         cols = ['address', 'city', 'state', 'country', 'name', 'description',
                 'title', 'phone', 'free_internet', 'pets_ok', 'free_parking',
                 'email', 'free_breakfast']
         for row in q:
-            subdoc = db.lookup_in(row['id'], tuple(SD.get(x) for x in cols))
+            subdoc = db.lookup_in(row.id, tuple(SD.get(x) for x in cols))
             # Get the address fields from the document, if they exist
             addr = ', '.join(subdoc.content_as[str](c) for c in cols[:4]
                              if subdoc.content_as[str](c) != "None")
@@ -312,19 +310,19 @@ app.add_url_rule('/api/airports', view_func=Airport.as_view('airports'),
 
 def connect_db():
     print(CONNSTR, authenticator)
-    cluster = Cluster(CONNSTR, Cluster.ClusterOptions(authenticator))
+    cluster = Cluster(CONNSTR, ClusterOptions(authenticator))
     static_bucket = cluster.bucket('travel-sample')
     db_collection = static_bucket.default_collection()
     try:
-        dynamic_bucket = cluster.bucket('travel-users')
-    except BucketMissingException as e:
+        dynamic_bucket = cluster.bucket('travel-sample')
+    except BucketNotFoundException as e:
         print("Collections bucket not found.")
         print("Have you initialized it with the create-collections.sh script?")
         raise e  # Continue raising error so application halts
-    return db_collection
+    return db_collection,cluster
 
 
-db = connect_db()
+db,cluster = connect_db()
 
 if __name__ == "__main__":
     app.run(debug=False, host='0.0.0.0', port=8080)
