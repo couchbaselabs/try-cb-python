@@ -1,22 +1,20 @@
-from datetime import datetime
-import math
-import json
-import uuid
-from random import random
-import jwt  # from PyJWT
 import argparse
+import json
+import math
+import uuid
+from datetime import datetime
+from random import random
 
-from flask import Flask, request, jsonify, abort, send_from_directory
-from flask import make_response, redirect
+import couchbase.search as FT
+import couchbase.subdocument as SD
+import jwt  # from PyJWT
+from couchbase.cluster import Cluster, ClusterOptions, PasswordAuthenticator
+from couchbase.exceptions import *
+from couchbase.search import SearchOptions
+from flask import (Flask, abort, jsonify, make_response, redirect, request,
+                   send_from_directory)
 from flask.views import View
 from flask_classy import FlaskView, route
-
-from couchbase.cluster import Cluster
-from couchbase_core.cluster import PasswordAuthenticator
-from couchbase_core.n1ql import N1QLQuery
-import couchbase_core.subdocument as SD
-import couchbase_core.fulltext as FT
-from couchbase.exceptions import *
 
 # For Couchbase Server 5.0 there must be a username and password
 # User must have full access to read/write bucket/data and
@@ -31,13 +29,14 @@ PASSWORD = 'password'
 parser = argparse.ArgumentParser()
 parser.add_argument('-c', '--cluster', help='Connection String i.e. localhost')
 parser.add_argument('-u', '--user', help='User with access to bucket')
-parser.add_argument('-p', '--password', help='Password of user with access to bucket')
+parser.add_argument('-p', '--password',
+                    help='Password of user with access to bucket')
 args = parser.parse_args()
 
 if args.cluster:
-        CONNSTR = "couchbase://" + args.cluster
+    CONNSTR = "couchbase://" + args.cluster
 else:
-        CONNSTR = "couchbase://localhost"
+    CONNSTR = "couchbase://localhost"
 if args.user and args.password:
     print((args.user, args.password))
     authenticator = PasswordAuthenticator(args.user, args.password)
@@ -53,9 +52,11 @@ app = Flask(__name__, static_url_path='/static')
 def index():
     return redirect("/index.html", code=302)
 
+
 @app.route('/<path:path>')
 def serveFiles(path):
     return send_from_directory("static", path)
+
 
 app.config.from_object(__name__)
 
@@ -73,19 +74,20 @@ class Airport(View):
         queryprep = "SELECT airportname FROM `travel-sample` WHERE "
         sameCase = querystr == querystr.lower() or querystr == querystr.upper()
         if sameCase and len(querystr) == 3:
-            queryprep += "faa = $1"
+            queryprep += "faa=$1"
             queryargs = [querystr.upper()]
         elif sameCase and len(querystr) == 4:
-            queryprep += "icao = $1"
+            queryprep += "icao=$1"
             queryargs = [querystr.upper()]
         else:
-            queryprep += "LOWER(airportname) LIKE $1"
-            queryargs = [querystr.lower() + '%']
+            queryprep += "POSITION(LOWER(airportname), $1) = 0"
+            queryargs = [querystr.lower()]
 
-        res = db.query(N1QLQuery(queryprep, *queryargs))
+        res = cluster.query(queryprep, *queryargs)
         airportslist = [x for x in res]
         context = [queryprep]
-        response = make_response(jsonify({"data": airportslist, "context": context}))
+        response = make_response(
+            jsonify({"data": airportslist, "context": context}))
         return response
 
     def dispatch_request(self):
@@ -104,37 +106,38 @@ class FlightPathsView(FlaskView):
         """
 
         queryleave = convdate(request.args['leave'])
-        queryprep = "SELECT faa as fromAirport,geo FROM `travel-sample` \
+        queryprep = "SELECT faa as fromAirport FROM `travel-sample` \
                     WHERE airportname = $1 \
-                    UNION SELECT faa as toAirport,geo FROM `travel-sample` \
+                    UNION SELECT faa as toAirport FROM `travel-sample` \
                     WHERE airportname = $2"
-        res = db.query(N1QLQuery(queryprep, fromloc, toloc))
+        res = cluster.query(queryprep, fromloc, toloc)
         flightpathlist = [x for x in res]
         context = [queryprep]
 
-        # Extract the 'toAirport' and 'fromAirport' values.
-        queryto = next(x['toAirport']
-                       for x in flightpathlist if 'toAirport' in x)
+        # Extract the 'fromAirport' and 'toAirport' values.
         queryfrom = next(x['fromAirport']
                          for x in flightpathlist if 'fromAirport' in x)
+        queryto = next(x['toAirport']
+                       for x in flightpathlist if 'toAirport' in x)
 
         queryroutes = "SELECT a.name, s.flight, s.utc, r.sourceairport, r.destinationairport, r.equipment \
                         FROM `travel-sample` AS r \
                         UNNEST r.schedule AS s \
                         JOIN `travel-sample` AS a ON KEYS r.airlineid \
-                        WHERE r.sourceairport = $1 AND r.destinationairport = $2 AND s.day = $3 \
+                        WHERE r.sourceairport = $fromfaa AND r.destinationairport = $tofaa AND s.day = $dayofweek \
                         ORDER BY a.name ASC;"
 
         # http://localhost:5000/api/flightpaths/Nome/Teller%20Airport?leave=01/01/2016
         # should produce query with OME, TLA faa codes
-        resroutes = db.query(
-            N1QLQuery(queryroutes, queryto, queryfrom, queryleave))
+        resroutes = cluster.query(
+            queryroutes, fromfaa=queryfrom, tofaa=queryto, dayofweek=queryleave)
         routelist = []
         for x in resroutes:
             x['flighttime'] = math.ceil(random() * 8000)
             x['price'] = math.ceil(x['flighttime'] / 8 * 100) / 100
             routelist.append(x)
-        response = make_response(jsonify({"data": routelist}))
+        response = make_response(
+            jsonify({"data": routelist, "context": context}))
         return response
 
 
@@ -152,17 +155,15 @@ class UserView(FlaskView):
             doc_pass = db.lookup_in(user, (
                 SD.get('password'),
             )).content_as[str](0)
-            
+
             if doc_pass != password:
                 return abortmsg(401, "Password does not match")
 
-        except SubdocPathNotFoundError:
-            print("Password for user {} item does not exist".format(user))
-        except NotFoundError:
+        except DocumentNotFoundException:
             print("User {} item does not exist".format(user))
-        except CouchbaseTransientError:
+        except CouchbaseTransientException:
             print("Transient error received - has Couchbase stopped running?")
-        except CouchbaseNetworkError:
+        except NetworkException:
             print("Network error received - is Couchbase Server running on this host?")
         else:
             return jsonify({'data': {'token': genToken(user)}})
@@ -220,14 +221,14 @@ class UserView(FlaskView):
             flight_id = str(uuid.uuid4())
 
             try:
-                    db.upsert(flight_id, newflight)
+                flights.upsert(flight_id, newflight)
             except Exception as e:
                 print(e)
                 return abortmsg(500, "Failed to add flight data")
 
             try:
-                db.mutate_in(user, (SD.array_append('flights',
-                                          flight_id, create_parents=True),))
+                users.mutate_in(user, (SD.array_append('flights',
+                                                       flight_id, create_parents=True),))
                 resjson = {'data': {'added': newflight},
                            'context': 'Update document ' + user}
                 return make_response(jsonify(resjson))
@@ -246,7 +247,7 @@ class HotelView(FlaskView):
         # Requires FTS index called 'hotels'
         # TODO auto create index if missing
         qp = FT.ConjunctionQuery(FT.TermQuery(term='hotel', field='type'))
-        if location != '*':
+        if location != '*' and location != "":
             qp.conjuncts.append(
                 FT.DisjunctionQuery(
                     FT.MatchPhraseQuery(location, field='country'),
@@ -255,20 +256,18 @@ class HotelView(FlaskView):
                     FT.MatchPhraseQuery(location, field='address')
                 ))
 
-        if description != '*':
+        if description != '*' and description != "":
             qp.conjuncts.append(
                 FT.DisjunctionQuery(
                     FT.MatchPhraseQuery(description, field='description'),
                     FT.MatchPhraseQuery(description, field='name')
                 ))
 
-        q = db.search('hotels', qp, limit=100)
+        q = cluster.search_query('hotels', qp, SearchOptions(limit=100))
         results = []
-        cols = ['address', 'city', 'state', 'country', 'name', 'description',
-                'title', 'phone', 'free_internet', 'pets_ok', 'free_parking',
-                'email', 'free_breakfast']
+        cols = ['address', 'city', 'state', 'country', 'name', 'description']
         for row in q:
-            subdoc = db.lookup_in(row['id'], tuple(SD.get(x) for x in cols))
+            subdoc = default.lookup_in(row.id, tuple(SD.get(x) for x in cols))
             # Get the address fields from the document, if they exist
             addr = ', '.join(subdoc.content_as[str](c) for c in cols[:4]
                              if subdoc.content_as[str](c) != "None")
@@ -291,9 +290,13 @@ def convdate(rawdate):
     day = datetime.strptime(rawdate, '%m/%d/%Y')
     return day.weekday()
 
+
 JWT_SECRET = 'cbtravelsample'
+
+
 def genToken(username):
-    return jwt.encode({'user': username.lower()}, JWT_SECRET).decode("ascii")
+    return jwt.encode({'user': username.lower()}, JWT_SECRET, algorithm='HS256').decode("ascii")
+
 
 def auth(bearerHeader, username):
     bearer = bearerHeader.split(" ")[1]
@@ -312,19 +315,22 @@ app.add_url_rule('/api/airports', view_func=Airport.as_view('airports'),
 
 def connect_db():
     print(CONNSTR, authenticator)
-    cluster = Cluster(CONNSTR, Cluster.ClusterOptions(authenticator))
+    cluster = Cluster(CONNSTR, ClusterOptions(authenticator))
     static_bucket = cluster.bucket('travel-sample')
-    db_collection = static_bucket.default_collection()
+    default_collection = static_bucket.default_collection()
     try:
         dynamic_bucket = cluster.bucket('travel-users')
     except BucketMissingException as e:
         print("Collections bucket not found.")
         print("Have you initialized it with the create-collections.sh script?")
         raise e  # Continue raising error so application halts
-    return db_collection
+    scope = dynamic_bucket.scope('userData')
+    user_collection = scope.collection('users')
+    flight_collection = scope.collection('flights')
+    return cluster, default_collection, user_collection, flight_collection
 
 
-db = connect_db()
+cluster, default, users, flights = connect_db()
 
 if __name__ == "__main__":
     app.run(debug=False, host='0.0.0.0', port=8080)
