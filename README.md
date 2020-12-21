@@ -21,7 +21,7 @@ The following pieces need to be in place in order to run the application.
    ![](https://raw.githubusercontent.com/couchbaselabs/try-cb-python/5.0/win_py_installer.png)
 - *Other Platform Users*: Download [libcouchbase](https://developer.couchbase.com/documentation/server/current/sdk/c/start-using-sdk.html) for your chosen platform
 * Full text search index on travel-sample bucket called 'hotels'.
- More information on how to set up an FTS index can be found [here](https://docs.couchbase.com/server/current/fts/fts-creating-indexes.html).
+More information on how to set up an FTS index can be found [here](https://docs.couchbase.com/server/current/fts/fts-creating-indexes.html)
 * Python 3.7+
 * libcouchbase system library 2.7.4+
 
