@@ -40,7 +40,7 @@ args = parser.parse_args()
 if args.cluster:
         CONNSTR = "couchbase://" + args.cluster
 else:
-        CONNSTR = "couchbase://localhost"
+        CONNSTR = "couchbase://cb-server"
 if args.user and args.password:
     print((args.user, args.password))
     authenticator = PasswordAuthenticator(args.user, args.password)
@@ -190,7 +190,7 @@ class UserView(FlaskView):
         # Create sync gateway user
         try:
             headerInfo = {'Content-type': 'application/json', 'Accept': 'application/json'}
-            sgUrl = "http://localhost:4985/travel-sample/_user/"
+            sgUrl = "http://sync-gateway:4985/travel-sample/_user/"
             sgValues = json.dumps({"name" : user, "password" : rawpassword})
             sgUser = requests.post(sgUrl, headers=headerInfo, data=sgValues)
             # print(sgValues)
@@ -278,17 +278,18 @@ class HotelView(FlaskView):
 
         q = cluster.search_query('hotels', qp, SearchOptions(limit=100))
         results = []
-        cols = ['address', 'city', 'state', 'country', 'name', 'description',
-                'title', 'phone', 'free_internet', 'pets_ok', 'free_parking',
-                'email', 'free_breakfast']
+
+        cols = ['address','city', 'state', 'country', 'name','description','id']
         for row in q.rows():
             subdoc = db.lookup_in(row.id, tuple(SD.get(x) for x in cols))
             # Get the address fields from the document, if they exist
             addr = ', '.join(subdoc.content_as[str](c) for c in cols[:4]
                              if subdoc.content_as[str](c) != "None")
-            subresults = dict((c, subdoc.content_as[str](c)) for c in cols[4:])
+            subresults = dict((c, subdoc.content_as[str](c)) for c in cols)
             subresults['address'] = addr
+            subresults['id'] = "hotel"+row.id
             results.append(subresults)
+
 
         response = {'data': results}
         return jsonify(response)

@@ -1,5 +1,5 @@
 # Set the base image to Ubuntu
-FROM ubuntu
+FROM ubuntu:18.04
 
 # File Author / Maintainer
 MAINTAINER Couchbase
