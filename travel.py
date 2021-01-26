@@ -40,7 +40,7 @@ args = parser.parse_args()
 if args.cluster:
         CONNSTR = "couchbase://" + args.cluster
 else:
-        CONNSTR = "couchbase://cb-server"
+        CONNSTR = "couchbase://localhost"
 if args.user and args.password:
     print((args.user, args.password))
     authenticator = PasswordAuthenticator(args.user, args.password)
@@ -190,7 +190,7 @@ class UserView(FlaskView):
         # Create sync gateway user
         try:
             headerInfo = {'Content-type': 'application/json', 'Accept': 'application/json'}
-            sgUrl = "http://sync-gateway:4985/travel-sample/_user/"
+            sgUrl = "http://localhost:4985/travel-sample/_user/"
             sgValues = json.dumps({"name" : user, "password" : rawpassword})
             sgUser = requests.post(sgUrl, headers=headerInfo, data=sgValues)
             # print(sgValues)
