@@ -1,35 +1,45 @@
 {
- "name": "hotels",
- "type": "fulltext-index",
- "params": {
-  "mapping": {
-   "default_mapping": {
-    "enabled": true,
-    "dynamic": true
-   },
-   "default_type": "_default",
-   "default_analyzer": "standard",
-   "default_datetime_parser": "dateTimeOptional",
-   "default_field": "_all",
-   "store_dynamic": false,
-   "index_dynamic": true
+  "name": "hotels-index",
+  "type": "fulltext-index",
+  "params": {
+    "doc_config": {
+      "docid_prefix_delim": "",
+      "docid_regexp": "",
+      "mode": "scope.collection.type_field",
+      "type_field": "type"
+    },
+    "mapping": {
+      "default_analyzer": "standard",
+      "default_datetime_parser": "dateTimeOptional",
+      "default_field": "_all",
+      "default_mapping": {
+        "dynamic": true,
+        "enabled": false
+      },
+      "default_type": "_default",
+      "docvalues_dynamic": false,
+      "index_dynamic": true,
+      "store_dynamic": false,
+      "type_field": "_type",
+      "types": {
+        "inventory.hotel": {
+          "dynamic": true,
+          "enabled": true
+        }
+      }
+    },
+    "store": {
+      "indexType": "scorch",
+      "segmentVersion": 15
+    }
   },
-  "store": {
-   "kvStoreName": "mossStore"
+  "sourceType": "couchbase",
+  "sourceName": "travel-sample",
+  "sourceParams": {},
+  "planParams": {
+    "maxPartitionsPerPIndex": 1024,
+    "indexPartitions": 1,
+    "numReplicas": 0
   },
-  "doc_config": {
-   "mode": "type_field",
-   "type_field": "type",
-   "docid_prefix_delim": "",
-   "docid_regexp": null
-  }
- },
- "sourceType": "couchbase",
- "sourceName": "travel-sample",
- "sourceParams": {},
- "planParams": {
-  "maxPartitionsPerPIndex": 171,
-  "numReplicas": 0
- },
- "uuid": ""
+  "uuid": ""
 }
