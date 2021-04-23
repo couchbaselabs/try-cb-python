@@ -3,7 +3,10 @@ FROM python:3.9-slim-buster
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y \
-    build-essential cmake jq curl
+    build-essential cmake \
+    git-all python3-dev python3-pip \
+    python3-setuptools \
+    jq curl
 
 ADD . /app 
 

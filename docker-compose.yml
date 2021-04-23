@@ -33,7 +33,7 @@ services:
       - "8091"
     healthcheck: # checks couchbase server is up
       test: ["CMD", "curl", "-v", "http://localhost:8091/pools"]
-      interval: 5s
+      interval: 20s
       timeout: 20s
       retries: 2
     container_name: couchbase-sandbox-7.0.0-beta

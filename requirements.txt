@@ -1,13 +1,13 @@
-couchbase>=3.0.10
+couchbase==3.0.10
 DateTime==4.1.1
-Flask==0.12
+Flask==1.1.2
 Flask-Classy==0.6.10
 itsdangerous==0.24
-Jinja2==2.9.3
+Jinja2==2.10.1
 MarkupSafe==0.23
 PyJWT==1.4.2
 pytz==2016.10
 six>=1.10.0
-Werkzeug==0.11.15
+Werkzeug==1.0.1
 zope.interface>=5.2.0
 Flask-Cors>=3.0.10

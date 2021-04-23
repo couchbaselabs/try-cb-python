@@ -10,7 +10,7 @@ CB_HOST="${CB_HOST:-db}"
 function createHotelsIndex() {
     echo
     echo "Creating hotels-index..."
-    curl --fail -v -s -u ${CB_USER}:${CB_PSWD} -X PUT \
+    curl --fail -s -u ${CB_USER}:${CB_PSWD} -X PUT \
         http://${CB_HOST}:8094/api/index/hotels-index \
         -H 'cache-control: no-cache' \
         -H 'content-type: application/json' \
@@ -18,7 +18,7 @@ function createHotelsIndex() {
     echo
 
     echo "Waiting for hotels-index to be ready..."
-    until curl --fail -v -u ${CB_USER}:${CB_PSWD} http://${CB_HOST}:8094/api/index/hotels-index/count |
+    until curl --fail -s -u ${CB_USER}:${CB_PSWD} http://${CB_HOST}:8094/api/index/hotels-index/count |
         jq -e '.count' | grep 917 >/dev/null; do
         echo "Waiting for hotels-index to be ready. Trying again in 10 seconds."
         sleep 10
@@ -38,7 +38,4 @@ fi
 
 echo
 echo "Running backend..."
-echo "Host: ${CB_HOST}"
-echo "User: ${CB_USER}"
-echo "Password: ${CB_PSWD}"
 python travel.py -c $CB_HOST -u $CB_USER -p $CB_PSWD
