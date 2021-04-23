@@ -60,10 +60,8 @@ CORS(app, headers=['Content-Type', 'Authorization'])
 
 @app.route('/')
 def index():
-    endpoints = []
-    for rule in app.url_map.iter_rules():
-        endpoints.append(str(rule))
-
+    """Returns the list of api endpoints"""
+    endpoints = [str(rule) for rule in app.url_map.iter_rules()]
     return jsonify(endpoints)
 
 
@@ -153,9 +151,9 @@ class TenantUserView(FlaskView):
     @cross_origin(supports_credentials=True)
     def login(tenant):
         """Login an existing user"""
-        agent = tenant.lower()
+        agent = make_user_key(tenant)
         req = request.get_json()
-        user = req['user'].lower()
+        user = make_user_key(req['user'])
         password = req['password']
 
         scope = bucket.scope(agent)
@@ -184,9 +182,9 @@ class TenantUserView(FlaskView):
     @cross_origin(supports_credentials=True)
     def signup(tenant):
         """Signup a new user"""
-        agent = tenant.lower()
+        agent = make_user_key(tenant)
         req = request.get_json()
-        user = req['user'].lower()
+        user = make_user_key(req['user'])
         password = req['password']
 
         scope = bucket.scope(agent)
@@ -205,8 +203,8 @@ class TenantUserView(FlaskView):
     @api.route('/tenants/<tenant>/user/<username>/flights', methods=['GET', 'PUT', 'OPTIONS'])
     @cross_origin(supports_credentials=True)
     def flights(tenant, username):
-        agent = tenant.lower()
-        user = username.lower()
+        agent = make_user_key(tenant)
+        user = make_user_key(username)
 
         scope = bucket.scope(agent)
         users = scope.collection('users')
@@ -321,7 +319,7 @@ JWT_SECRET = 'cbtravelsample'
 
 
 def genToken(username):
-    return jwt.encode({'user': username.lower()}, JWT_SECRET, algorithm='HS256').decode("ascii")
+    return jwt.encode({'user': make_user_key(username)}, JWT_SECRET, algorithm='HS256').decode("ascii")
 
 
 def auth(bearerHeader, username):
