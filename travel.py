@@ -9,13 +9,10 @@ import couchbase.subdocument as SD
 import jwt  # from PyJWT
 from couchbase.cluster import Cluster, ClusterOptions, PasswordAuthenticator
 from couchbase.exceptions import *
-from couchbase.management.search import SearchIndex
 from couchbase.search import SearchOptions
-from flask import (Flask, abort, jsonify, make_response, redirect, request,
-                   send_from_directory)
+from flask import Flask, jsonify, make_response, request
 from flask.blueprints import Blueprint
-from flask.views import View
-from flask_classy import FlaskView, route
+from flask_classy import FlaskView
 from flask_cors import CORS, cross_origin
 
 # For Couchbase Server 5.0 there must be a username and password
@@ -340,4 +337,4 @@ def connect_db():
 cluster, bucket = connect_db()
 
 if __name__ == "__main__":
-    app.run(debug=False, host='0.0.0.0', port=8080)
+    app.run(debug=False, host='0.0.0.0', port=8080, threaded=False)

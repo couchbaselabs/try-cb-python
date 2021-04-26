@@ -34,6 +34,8 @@ $ docker-compose up
 This will start the Python backend, Couchbase Server 7.0.0-beta and the Vue app.
 You can access the backend API on `http://localhost:8080/`, the UI on `http://localhost:8081/` and Couchbase Server at `http://localhost:8091/`.
 
+You should then be able to browse the UI, search for US airports and get flight route information. If you are unsure for what to search for, try from SFO to LAX.
+
 Alternatively, you can choose to only run the backend API and Couchbase Server if that is your preference:
 ```
 docker-compose up backend
