@@ -130,7 +130,7 @@ class FlightPathsView(FlaskView):
                         WHERE r.sourceairport = $fromfaa AND r.destinationairport = $tofaa AND s.day = $dayofweek \
                         ORDER BY a.name ASC;"
 
-        # http://localhost:5000/api/flightpaths/Nome/Teller%20Airport?leave=01/01/2016
+        # http://localhost:8080/api/flightPaths/Nome/Teller%20Airport?leave=01/01/2016
         # should produce query with OME, TLA faa codes
         resroutes = cluster.query(
             queryroutes, fromfaa=queryfrom, tofaa=queryto, dayofweek=queryleave)

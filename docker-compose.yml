@@ -29,8 +29,9 @@ services:
     ports:
       - "8091-8095:8091-8095"
       - "11210:11210"
-    expose: # expose port 8091 to other containers (mainly for backend)
+    expose: # expose ports 8091 & 8094 to other containers (mainly for backend)
       - "8091"
+      - "8094"
     healthcheck: # checks couchbase server is up
       test: ["CMD", "curl", "-v", "http://localhost:8091/pools"]
       interval: 20s
