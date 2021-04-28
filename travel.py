@@ -73,6 +73,9 @@ class AirportView(FlaskView):
     @cross_origin(supports_credentials=True)
     def airports():
         """Returns list of matching airports and the source query"""
+
+        querytype = "N1QL query - scoped to inventory: "
+
         querystr = request.args['search']
         queryprep = "SELECT airportname FROM `travel-sample`.inventory.airport WHERE "
         sameCase = querystr == querystr.lower() or querystr == querystr.upper()
@@ -88,7 +91,7 @@ class AirportView(FlaskView):
 
         res = cluster.query(queryprep, *queryargs)
         airportslist = [x for x in res]
-        context = [queryprep]
+        context = [querytype + queryprep]
         response = make_response(
             jsonify({"data": airportslist, "context": context}))
         return response
@@ -105,6 +108,8 @@ class FlightPathsView(FlaskView):
         and date
         """
 
+        querytype = "N1QL query - scoped to inventory: "
+
         queryleave = convdate(request.args['leave'])
         queryprep = "SELECT faa as fromAirport FROM `travel-sample`.inventory.airport \
                     WHERE airportname = $1 \
@@ -112,7 +117,7 @@ class FlightPathsView(FlaskView):
                     WHERE airportname = $2"
         res = cluster.query(queryprep, fromloc, toloc)
         flightpathlist = [x for x in res]
-        context = [queryprep]
+        context = [querytype + queryprep]
 
         # Extract the 'fromAirport' and 'toAirport' values.
         queryfrom = next(x['fromAirport']
@@ -136,6 +141,10 @@ class FlightPathsView(FlaskView):
             x['flighttime'] = math.ceil(random() * 8000)
             x['price'] = math.ceil(x['flighttime'] / 8 * 100) / 100
             routelist.append(x)
+
+        # Include second query in context
+        context.append(querytype + queryroutes)
+
         response = make_response(
             jsonify({"data": routelist, "context": context}))
         return response
@@ -156,6 +165,8 @@ class TenantUserView(FlaskView):
         scope = bucket.scope(agent)
         users = scope.collection('users')
 
+        querytype = "KV get - scoped to " + scope.name + \
+            ".users" + ": for password field in document "
         try:
             doc_pass = users.lookup_in(user, (
                 SD.get('password'),
@@ -171,7 +182,7 @@ class TenantUserView(FlaskView):
         except NetworkException:
             print("Network error received - is Couchbase Server running on this host?")
         else:
-            return jsonify({'data': {'token': genToken(user)}})
+            return jsonify({'data': {'token': genToken(user)}, 'context': querytype + user})
 
         return abortmsg(401, "Failed to get user data")
 
@@ -187,15 +198,21 @@ class TenantUserView(FlaskView):
         scope = bucket.scope(agent)
         users = scope.collection('users')
 
+        querytype = "KV insert - scoped to " + scope.name + \
+            ".users" + ": document "
         try:
             users.insert(user, {'username': user, 'password': password})
-            respjson = jsonify({'data': {'token': genToken(user)}})
+            respjson = jsonify(
+                {'data': {'token': genToken(user)}, 'context': querytype + user})
             response = make_response(respjson)
             return response
 
+        except DocumentExistsException:
+            print("User {} item already exists".format(user))
+            return abortmsg(409, "User already exists")
         except Exception as e:
             print(e)
-            return abortmsg(409, "Failed to save user")
+            return abortmsg(500, "Failed to save user")
 
     @api.route('/tenants/<tenant>/user/<username>/flights', methods=['GET', 'PUT', 'OPTIONS'])
     @cross_origin(supports_credentials=True)
@@ -221,7 +238,11 @@ class TenantUserView(FlaskView):
                 for key in booked_flights:
                     rows.append(flights.get(key).content_as[dict])
                 print(rows)
-                respjson = jsonify({"data": rows})
+
+                querytype = "KV get - scoped to " + scope.name + \
+                    ".user" + ": for " + \
+                    str(len(booked_flights)) + " bookings in document "
+                respjson = jsonify({"data": rows, "context": querytype + user})
                 response = make_response(respjson)
                 return response
 
@@ -242,18 +263,21 @@ class TenantUserView(FlaskView):
                 flights.upsert(flight_id, newflight)
             except Exception as e:
                 print(e)
-                return abortmsg(409, "Failed to add flight data")
+                return abortmsg(500, "Failed to add flight data")
 
             try:
                 users.mutate_in(user, (SD.array_append('bookings',
                                                        flight_id, create_parents=True),))
+
+                querytype = "KV update - scoped to " + scope.name + \
+                    ".user" + ": for bookings field in document "
                 resjson = {'data': {'added': newflight},
-                           'context': 'Update document ' + user}
+                           'context': querytype + user}
                 return make_response(jsonify(resjson))
             except DocumentNotFoundException:
                 return abortmsg(401, "User does not exist")
             except Exception:
-                return abortmsg(409, "Couldn't update flights")
+                return abortmsg(500, "Couldn't update flights")
 
 
 class HotelView(FlaskView):
@@ -282,7 +306,8 @@ class HotelView(FlaskView):
                     FT.MatchPhraseQuery(description, field='name')
                 ))
 
-        hotel_collection = bucket.scope('inventory').collection('hotel')
+        scope = bucket.scope('inventory')
+        hotel_collection = scope.collection('hotel')
         q = cluster.search_query('hotels-index', qp, SearchOptions(limit=100))
         results = []
         cols = ['address', 'city', 'state', 'country', 'name', 'description']
@@ -296,7 +321,9 @@ class HotelView(FlaskView):
             subresults['address'] = addr
             results.append(subresults)
 
-        response = {'data': results}
+        querytype = "FTS search - scoped to: " + scope.name + \
+            ".hotel" + " within fields " + ', '.join(cols)
+        response = {'data': results, 'context': querytype}
         return jsonify(response)
 
 

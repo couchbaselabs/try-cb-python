@@ -17,7 +17,7 @@ function createHotelsIndex() {
         -d @fts-hotels-index.json
     echo
 
-    echo "Waiting for hotels-index to be ready. Please wait (~50 sec)..."
+    echo "Waiting for hotels-index to be ready. Please wait..."
     until curl --fail -s -u ${CB_USER}:${CB_PSWD} http://${CB_HOST}:8094/api/index/hotels-index/count |
         jq -e '.count' | grep 917 >/dev/null; do
         echo "Waiting for hotels-index to be ready. Trying again in 10 seconds."
