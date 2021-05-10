@@ -11,8 +11,10 @@ RUN apt-get update && apt-get install -y \
 
 ADD . /app 
 
+# Due to some compatibility issues with Couchbase Server 7.0.0 beta and SDK 3.1.1, 
+# we set the LCB_TAG (libcouchbase tag) to 3.1.0 to mitigate against `LCB_ERR_KVENGINE_INVALID_PACKET` error(PYCBC-1119).
 # Get pip to download and install requirements:
-RUN pip install -r requirements.txt
+RUN LCB_TAG=3.1.0 pip install -r requirements.txt
 
 # Expose ports
 EXPOSE 8080
