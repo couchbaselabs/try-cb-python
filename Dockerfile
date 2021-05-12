@@ -1,33 +1,23 @@
-# Set the base image to Ubuntu
-FROM ubuntu
+FROM python:3.9-slim-buster
 
-# File Author / Maintainer
-MAINTAINER Couchbase
+LABEL maintainer="Couchbase"
 
-# Update the sources list
-RUN apt-get update
+WORKDIR /app
 
-# Install basic applications
-RUN apt-get install -y tar git curl nano wget dialog net-tools build-essential dpkg
+RUN apt-get update && apt-get install -y \
+    build-essential cmake \
+    git-all libssl-dev \
+    jq curl
 
-RUN apt-get install apt-utils --assume-yes
-RUN apt-get install lsb-release --assume-yes
+ADD . /app 
 
-# Install Python and Basic Python Tools
-RUN apt-get update && apt-get install -y python python-dev python-distribute python-pip
-RUN wget http://packages.couchbase.com/releases/couchbase-release/couchbase-release-1.0-2-amd64.deb && apt-get install ./couchbase-release-1.0-2-amd64.deb
-
-RUN apt-get update && apt-get install libcouchbase-dev build-essential python-dev python-pip --assume-yes
-
-ADD . .
-
+# Due to some compatibility issues with Couchbase Server 7.0.0 beta and SDK 3.1.1, 
+# we set the LCB_TAG (libcouchbase tag) to 3.1.0 to mitigate against `LCB_ERR_KVENGINE_INVALID_PACKET` error(PYCBC-1119).
 # Get pip to download and install requirements:
-RUN pip install -r requirements.txt
+RUN LCB_TAG=3.1.0 pip install -r requirements.txt
 
 # Expose ports
-EXPOSE 80
+EXPOSE 8080
 
-# Set the default command to execute    
-# when creating a new container
-# i.e. using CherryPy to serve the application
-CMD python travel.py
+# Set the entrypoint 
+ENTRYPOINT ["./entrypoint.sh"]

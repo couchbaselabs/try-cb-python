@@ -1,5 +1,4 @@
 import argparse
-import json
 import math
 import uuid
 from datetime import datetime
@@ -11,10 +10,10 @@ import jwt  # from PyJWT
 from couchbase.cluster import Cluster, ClusterOptions, PasswordAuthenticator
 from couchbase.exceptions import *
 from couchbase.search import SearchOptions
-from flask import (Flask, abort, jsonify, make_response, redirect, request,
-                   send_from_directory)
-from flask.views import View
-from flask_classy import FlaskView, route
+from flask import Flask, jsonify, make_response, request
+from flask.blueprints import Blueprint
+from flask_classy import FlaskView
+from flask_cors import CORS, cross_origin
 
 # For Couchbase Server 5.0 there must be a username and password
 # User must have full access to read/write bucket/data and
@@ -36,7 +35,9 @@ args = parser.parse_args()
 if args.cluster:
     CONNSTR = "couchbase://" + args.cluster
 else:
-    CONNSTR = "couchbase://localhost"
+    # 'db' is an alias that resolves to the couchbase-server docker hostname.
+    # See `docker-compose.yml (line 25)`.
+    CONNSTR = "couchbase://db"
 if args.user and args.password:
     print((args.user, args.password))
     authenticator = PasswordAuthenticator(args.user, args.password)
@@ -45,33 +46,38 @@ else:
 
 print("Connecting to: " + CONNSTR)
 
-app = Flask(__name__, static_url_path='/static')
+app = Flask(__name__)
+app.config.from_object(__name__)
+app.config['CORS_HEADERS'] = 'Content-Type'
+
+api = Blueprint("api", __name__)
+
+CORS(app, headers=['Content-Type', 'Authorization'])
 
 
 @app.route('/')
 def index():
-    return redirect("/index.html", code=302)
-
-
-@app.route('/<path:path>')
-def serveFiles(path):
-    return send_from_directory("static", path)
-
-
-app.config.from_object(__name__)
+    """Returns the list of api endpoints"""
+    endpoints = [str(rule) for rule in app.url_map.iter_rules()]
+    return jsonify(endpoints)
 
 
 def make_user_key(username):
     return username.lower()
 
 
-class Airport(View):
+class AirportView(FlaskView):
     """Airport class for airport objects in the database"""
 
-    def findall(self):
+    @api.route('/airports', methods=['GET', 'OPTIONS'])
+    @cross_origin(supports_credentials=True)
+    def airports():
         """Returns list of matching airports and the source query"""
+
+        querytype = "N1QL query - scoped to inventory: "
+
         querystr = request.args['search']
-        queryprep = "SELECT airportname FROM `travel-sample` WHERE "
+        queryprep = "SELECT airportname FROM `travel-sample`.inventory.airport WHERE "
         sameCase = querystr == querystr.lower() or querystr == querystr.upper()
         if sameCase and len(querystr) == 3:
             queryprep += "faa=$1"
@@ -85,34 +91,33 @@ class Airport(View):
 
         res = cluster.query(queryprep, *queryargs)
         airportslist = [x for x in res]
-        context = [queryprep]
+        context = [querytype + queryprep]
         response = make_response(
             jsonify({"data": airportslist, "context": context}))
         return response
-
-    def dispatch_request(self):
-        context = self.findall()
-        return context
 
 
 class FlightPathsView(FlaskView):
     """ FlightPath class for computed flights between two airports FAA codes"""
 
-    @route('/<fromloc>/<toloc>', methods=['GET', 'OPTIONS'])
-    def findall(self, fromloc, toloc):
+    @api.route('/flightPaths/<fromloc>/<toloc>', methods=['GET', 'OPTIONS'])
+    @cross_origin(supports_credentials=True)
+    def flightPaths(fromloc, toloc):
         """
         Return flights information, cost and more for a given flight time
         and date
         """
 
+        querytype = "N1QL query - scoped to inventory: "
+
         queryleave = convdate(request.args['leave'])
-        queryprep = "SELECT faa as fromAirport FROM `travel-sample` \
+        queryprep = "SELECT faa as fromAirport FROM `travel-sample`.inventory.airport \
                     WHERE airportname = $1 \
-                    UNION SELECT faa as toAirport FROM `travel-sample` \
+                    UNION SELECT faa as toAirport FROM `travel-sample`.inventory.airport \
                     WHERE airportname = $2"
         res = cluster.query(queryprep, fromloc, toloc)
         flightpathlist = [x for x in res]
-        context = [queryprep]
+        context = [querytype + queryprep]
 
         # Extract the 'fromAirport' and 'toAirport' values.
         queryfrom = next(x['fromAirport']
@@ -121,13 +126,13 @@ class FlightPathsView(FlaskView):
                        for x in flightpathlist if 'toAirport' in x)
 
         queryroutes = "SELECT a.name, s.flight, s.utc, r.sourceairport, r.destinationairport, r.equipment \
-                        FROM `travel-sample` AS r \
+                        FROM `travel-sample`.inventory.route AS r \
                         UNNEST r.schedule AS s \
-                        JOIN `travel-sample` AS a ON KEYS r.airlineid \
+                        JOIN `travel-sample`.inventory.airline AS a ON KEYS r.airlineid \
                         WHERE r.sourceairport = $fromfaa AND r.destinationairport = $tofaa AND s.day = $dayofweek \
                         ORDER BY a.name ASC;"
 
-        # http://localhost:5000/api/flightpaths/Nome/Teller%20Airport?leave=01/01/2016
+        # http://localhost:8080/api/flightPaths/Nome/Teller%20Airport?leave=01/01/2016
         # should produce query with OME, TLA faa codes
         resroutes = cluster.query(
             queryroutes, fromfaa=queryfrom, tofaa=queryto, dayofweek=queryleave)
@@ -136,21 +141,32 @@ class FlightPathsView(FlaskView):
             x['flighttime'] = math.ceil(random() * 8000)
             x['price'] = math.ceil(x['flighttime'] / 8 * 100) / 100
             routelist.append(x)
+
+        # Include second query in context
+        context.append(querytype + queryroutes)
+
         response = make_response(
             jsonify({"data": routelist, "context": context}))
         return response
 
 
-class UserView(FlaskView):
-    """Class for storing user related information and their carts"""
+class TenantUserView(FlaskView):
+    """Class for storing user related information for a given tenant"""
 
-    @route('/login', methods=['POST', 'OPTIONS'])
-    def login(self):
+    @api.route('/tenants/<tenant>/user/login', methods=['POST', 'OPTIONS'])
+    @cross_origin(supports_credentials=True)
+    def login(tenant):
         """Login an existing user"""
+        agent = make_user_key(tenant)
         req = request.get_json()
-        user = req['user'].lower()
+        user = make_user_key(req['user'])
         password = req['password']
 
+        scope = bucket.scope(agent)
+        users = scope.collection('users')
+
+        querytype = "KV get - scoped to {name}.users: for password field in document ".format(
+            name=scope.name)
         try:
             doc_pass = users.lookup_in(user, (
                 SD.get('password'),
@@ -166,28 +182,47 @@ class UserView(FlaskView):
         except NetworkException:
             print("Network error received - is Couchbase Server running on this host?")
         else:
-            return jsonify({'data': {'token': genToken(user)}})
-        return abortmsg(500, "Failed to get user data")
+            return jsonify({'data': {'token': genToken(user)}, 'context': querytype + user})
 
-    @route('/signup', methods=['POST', 'OPTIONS'])
-    def signup(self):
+        return abortmsg(401, "Failed to get user data")
+
+    @api.route('/tenants/<tenant>/user/signup', methods=['POST', 'OPTIONS'])
+    @cross_origin(supports_credentials=True)
+    def signup(tenant):
         """Signup a new user"""
+        agent = make_user_key(tenant)
         req = request.get_json()
-        user = req['user'].lower()
+        user = make_user_key(req['user'])
         password = req['password']
 
+        scope = bucket.scope(agent)
+        users = scope.collection('users')
+
+        querytype = "KV insert - scoped to {name}.users: document ".format(
+            name=scope.name)
         try:
-            users.upsert(user, {'username': user, 'password': password})
-            respjson = jsonify({'data': {'token': genToken(user)}})
+            users.insert(user, {'username': user, 'password': password})
+            respjson = jsonify(
+                {'data': {'token': genToken(user)}, 'context': querytype + user})
             response = make_response(respjson)
             return response
+
+        except DocumentExistsException:
+            print("User {} item already exists".format(user))
+            return abortmsg(409, "User already exists")
         except Exception as e:
             print(e)
-            abort(409)
+            return abortmsg(500, "Failed to save user")
 
-    @route('/<username>/flights', methods=['GET', 'POST', 'OPTIONS'])
-    def userflights(self, username):
-        user = username.lower()
+    @api.route('/tenants/<tenant>/user/<username>/flights', methods=['GET', 'PUT', 'OPTIONS'])
+    @cross_origin(supports_credentials=True)
+    def flights(tenant, username):
+        agent = make_user_key(tenant)
+        user = make_user_key(username)
+
+        scope = bucket.scope(agent)
+        users = scope.collection('users')
+        flights = scope.collection('bookings')
 
         """List the flights that have been reserved by a user"""
         if request.method == 'GET':
@@ -197,21 +232,24 @@ class UserView(FlaskView):
 
             try:
                 userdockey = make_user_key(username)
-                rv = users.lookup_in(userdockey, (SD.get('flights'),))
+                rv = users.lookup_in(userdockey, (SD.get('bookings'),))
                 booked_flights = rv.content_as[list](0)
                 rows = []
                 for key in booked_flights:
                     rows.append(flights.get(key).content_as[dict])
                 print(rows)
-                respjson = jsonify({"data": rows})
+
+                querytype = "KV get - scoped to {name}.user: for {num} bookings in document ".format(
+                    name=scope.name, num=len(booked_flights))
+                respjson = jsonify({"data": rows, "context": querytype + user})
                 response = make_response(respjson)
                 return response
 
-            except NotFoundError:
-                return abortmsg(500, "User does not exist")
+            except DocumentNotFoundException:
+                return abortmsg(401, "User does not exist")
 
         # """Book a new flight for a user"""
-        elif request.method == 'POST':
+        elif request.method == 'PUT':
 
             bearer = request.headers['Authorization']
             if not auth(bearer, user):
@@ -227,26 +265,30 @@ class UserView(FlaskView):
                 return abortmsg(500, "Failed to add flight data")
 
             try:
-                users.mutate_in(user, (SD.array_append('flights',
+                users.mutate_in(user, (SD.array_append('bookings',
                                                        flight_id, create_parents=True),))
+
+                querytype = "KV update - scoped to {name}.user: for bookings field in document ".format(
+                    name=scope.name)
                 resjson = {'data': {'added': newflight},
-                           'context': 'Update document ' + user}
+                           'context': querytype + user}
                 return make_response(jsonify(resjson))
-            except NotFoundError:
-                return abortmsg(500, "User does not exist")
-            except CouchbaseDataError:
-                return abortmsg(409, "Couldn't update flights")
+            except DocumentNotFoundException:
+                return abortmsg(401, "User does not exist")
+            except Exception:
+                return abortmsg(500, "Couldn't update flights")
 
 
 class HotelView(FlaskView):
     """Class for storing Hotel search related information"""
 
-    @route('/<description>/<location>/', methods=['GET'])
-    def findall(self, description, location):
-        """Find hotels using full text search"""
-        # Requires FTS index called 'hotels'
+    @api.route('/hotels/<description>/<location>/', methods=['GET'])
+    @cross_origin(supports_credentials=True)
+    def hotels(description, location):
+        # Requires FTS index called 'hotels-index'
         # TODO auto create index if missing
-        qp = FT.ConjunctionQuery(FT.TermQuery(term='hotel', field='type'))
+        """Find hotels using full text search"""
+        qp = FT.ConjunctionQuery()
         if location != '*' and location != "":
             qp.conjuncts.append(
                 FT.DisjunctionQuery(
@@ -263,11 +305,14 @@ class HotelView(FlaskView):
                     FT.MatchPhraseQuery(description, field='name')
                 ))
 
-        q = cluster.search_query('hotels', qp, SearchOptions(limit=100))
+        scope = bucket.scope('inventory')
+        hotel_collection = scope.collection('hotel')
+        q = cluster.search_query('hotels-index', qp, SearchOptions(limit=100))
         results = []
         cols = ['address', 'city', 'state', 'country', 'name', 'description']
         for row in q:
-            subdoc = default.lookup_in(row.id, tuple(SD.get(x) for x in cols))
+            subdoc = hotel_collection.lookup_in(
+                row.id, tuple(SD.get(x) for x in cols))
             # Get the address fields from the document, if they exist
             addr = ', '.join(subdoc.content_as[str](c) for c in cols[:4]
                              if subdoc.content_as[str](c) != "None")
@@ -275,7 +320,9 @@ class HotelView(FlaskView):
             subresults['address'] = addr
             results.append(subresults)
 
-        response = {'data': results}
+        querytype = "FTS search - scoped to: {name}.hotel within fields {fields}".format(
+            name=scope.name, fields=','.join(cols))
+        response = {'data': results, 'context': querytype}
         return jsonify(response)
 
 
@@ -295,7 +342,7 @@ JWT_SECRET = 'cbtravelsample'
 
 
 def genToken(username):
-    return jwt.encode({'user': username.lower()}, JWT_SECRET, algorithm='HS256').decode("ascii")
+    return jwt.encode({'user': make_user_key(username)}, JWT_SECRET, algorithm='HS256').decode("ascii")
 
 
 def auth(bearerHeader, username):
@@ -303,34 +350,17 @@ def auth(bearerHeader, username):
     return username == jwt.decode(bearer, JWT_SECRET)['user']
 
 
-# Setup pluggable Flask views routing system
-HotelView.register(app, route_prefix='/api/')
-# Added route_base below to allow camelCase view name
-FlightPathsView.register(app, route_prefix='/api/', route_base='flightPaths')
-UserView.register(app, route_prefix='/api/')
-
-app.add_url_rule('/api/airports', view_func=Airport.as_view('airports'),
-                 methods=['GET', 'OPTIONS'])
+app.register_blueprint(api, url_prefix="/api")
 
 
 def connect_db():
     print(CONNSTR, authenticator)
     cluster = Cluster(CONNSTR, ClusterOptions(authenticator))
-    static_bucket = cluster.bucket('travel-sample')
-    default_collection = static_bucket.default_collection()
-    try:
-        dynamic_bucket = cluster.bucket('travel-users')
-    except BucketMissingException as e:
-        print("Collections bucket not found.")
-        print("Have you initialized it with the create-collections.sh script?")
-        raise e  # Continue raising error so application halts
-    scope = dynamic_bucket.scope('userData')
-    user_collection = scope.collection('users')
-    flight_collection = scope.collection('flights')
-    return cluster, default_collection, user_collection, flight_collection
+    bucket = cluster.bucket('travel-sample')
+    return cluster, bucket
 
 
-cluster, default, users, flights = connect_db()
+cluster, bucket = connect_db()
 
 if __name__ == "__main__":
-    app.run(debug=False, host='0.0.0.0', port=8080)
+    app.run(debug=False, host='0.0.0.0', port=8080, threaded=False)
