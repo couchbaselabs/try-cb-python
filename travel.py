@@ -165,8 +165,8 @@ class TenantUserView(FlaskView):
         scope = bucket.scope(agent)
         users = scope.collection('users')
 
-        querytype = "KV get - scoped to " + scope.name + \
-            ".users" + ": for password field in document "
+        querytype = "KV get - scoped to {name}.users: for password field in document ".format(
+            name=scope.name)
         try:
             doc_pass = users.lookup_in(user, (
                 SD.get('password'),
@@ -198,8 +198,8 @@ class TenantUserView(FlaskView):
         scope = bucket.scope(agent)
         users = scope.collection('users')
 
-        querytype = "KV insert - scoped to " + scope.name + \
-            ".users" + ": document "
+        querytype = "KV insert - scoped to {name}.users: document ".format(
+            name=scope.name)
         try:
             users.insert(user, {'username': user, 'password': password})
             respjson = jsonify(
@@ -239,9 +239,8 @@ class TenantUserView(FlaskView):
                     rows.append(flights.get(key).content_as[dict])
                 print(rows)
 
-                querytype = "KV get - scoped to " + scope.name + \
-                    ".user" + ": for " + \
-                    str(len(booked_flights)) + " bookings in document "
+                querytype = "KV get - scoped to {name}.user: for {num} bookings in document ".format(
+                    name=scope.name, num=len(booked_flights))
                 respjson = jsonify({"data": rows, "context": querytype + user})
                 response = make_response(respjson)
                 return response
@@ -269,8 +268,8 @@ class TenantUserView(FlaskView):
                 users.mutate_in(user, (SD.array_append('bookings',
                                                        flight_id, create_parents=True),))
 
-                querytype = "KV update - scoped to " + scope.name + \
-                    ".user" + ": for bookings field in document "
+                querytype = "KV update - scoped to {name}.user: for bookings field in document ".format(
+                    name=scope.name)
                 resjson = {'data': {'added': newflight},
                            'context': querytype + user}
                 return make_response(jsonify(resjson))
@@ -321,8 +320,8 @@ class HotelView(FlaskView):
             subresults['address'] = addr
             results.append(subresults)
 
-        querytype = "FTS search - scoped to: " + scope.name + \
-            ".hotel" + " within fields " + ', '.join(cols)
+        querytype = "FTS search - scoped to: {name}.hotel within fields {fields}".format(
+            name=scope.name, fields=','.join(cols))
         response = {'data': results, 'context': querytype}
         return jsonify(response)
 
