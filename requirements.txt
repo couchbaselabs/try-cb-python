@@ -11,3 +11,4 @@ six>=1.10.0
 Werkzeug==1.0.1
 zope.interface>=5.2.0
 Flask-Cors>=3.0.10
+flasgger==0.9.5
