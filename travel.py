@@ -114,7 +114,15 @@ CORS(app, headers=['Content-Type', 'Authorization'])
 
 @app.route('/')
 def index():
-    """Returns the index page"""
+    """Returns the index page
+    ---
+    responses:
+        200:
+          description: Returns the API index page
+          content:
+            text/html:
+              example: <h1> Travel Sample API </h1>
+    """
 
     return """
     <h1> Python Travel Sample API </h1>
@@ -225,8 +233,8 @@ class FlightPathsView(SwaggerView):
                   schema:
                     $ref: '#/components/schemas/ResultList'
                   example:
-                    context: ["N1QL query - scoped to inventory: SELECT faa as fromAirport FROM `travel-sample`.inventory.airport \
-                        WHERE airportname = $1 UNION SELECT faa as toAirport FROM `travel-sample`.inventory.airport WHERE airportname = $2"]
+                    context: ["N1QL query - scoped to inventory: SELECT faa as fromAirport FROM `travel-sample`.inventory.airport
+                    WHERE airportname = $1 UNION SELECT faa as toAirport FROM `travel-sample`.inventory.airport WHERE airportname = $2"]
                     data: [{
                               "destinationairport": "LAX",
                               "equipment": "738",
@@ -664,7 +672,7 @@ class HotelView(SwaggerView):
                             },
                             {
                               "address": "121 7th St, San Francisco, California, United States",
-                              "description": "Chain motel with a few more amenities than the typical Best Western; outdoor swimming pool, \
+                              "description": "Chain motel with a few more amenities than the typical Best Western; outdoor swimming pool,
                                   internet access, cafe on-site, pet friendly.",
                               "name": "Best Western Americania"
                             }
