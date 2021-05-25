@@ -406,7 +406,7 @@ class TenantUserView(SwaggerView):
         try:
             users.insert(user, {'username': user, 'password': password})
             respjson = jsonify(
-                {'data': {'token': genToken(user)}, 'context': querytype + user})
+                {'data': {'token': genToken(user)}, 'context': [querytype + user]})
             response = make_response(respjson)
             return response
 
@@ -612,7 +612,7 @@ class TenantUserView(SwaggerView):
 class HotelView(SwaggerView):
     """Class for storing Hotel search related information"""
 
-    @api.route('/hotels/<description>/<location>/', methods=['GET'])
+    @api.route('/hotels/<description>/<location>', methods=['GET'])
     @cross_origin(supports_credentials=True)
     def hotels(description, location):
         # Requires FTS index called 'hotels-index'
