@@ -101,7 +101,7 @@ class AirportView(SwaggerView):
         """Returns list of matching airports and the source query
         ---
         tags:
-        - aiports
+        - airports
         parameters:
             - name: search
               in: query
@@ -109,7 +109,7 @@ class AirportView(SwaggerView):
               schema:
                 type: string
               example: SFO
-              description: The aiport name/code to search for
+              description: The airport name/code to search for
         responses:
             200:
               description: Returns airport data and query context information
