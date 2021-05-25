@@ -67,6 +67,17 @@ swagger_template = {
                 "scheme": "bearer",
                 "bearerFormat": "JWT"
             }
+        },
+        "schemas": {
+            "ErrorModel": {
+                "type": "object",
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "example": ["An error message"]
+                    }
+                }
+            }
         }
     }
 }
@@ -298,12 +309,8 @@ class TenantUserView(SwaggerView):
               description: Returns an authentication error
               content:
                 application/json:
-                    schema:
-                       type: object
-                       properties:
-                        message:
-                           type: string
-                           example: ["Password does not match"]
+                    schema: 
+                      $ref: '#/components/schemas/ErrorModel'
         """
         agent = lowercase(tenant)
         req = request.get_json()
@@ -386,12 +393,8 @@ class TenantUserView(SwaggerView):
               description: Returns a conflict error
               content:
                 application/json:
-                    schema:
-                       type: object
-                       properties:
-                        message:
-                           type: string
-                           example: ["User already exists"]
+                    schema: 
+                      $ref: '#/components/schemas/ErrorModel'
         """
         agent = lowercase(tenant)
         req = request.get_json()
@@ -466,12 +469,8 @@ class TenantUserView(SwaggerView):
               description: Returns an authentication error
               content:
                 application/json:
-                    schema:
-                       type: object
-                       properties:
-                        message:
-                           type: string
-                           example: ["User does not exist"]
+                    schema: 
+                      $ref: '#/components/schemas/ErrorModel'
         security:
             - bearer: []
         """
@@ -569,12 +568,8 @@ class TenantUserView(SwaggerView):
               description: Returns an authentication error
               content:
                 application/json:
-                    schema:
-                       type: object
-                       properties:
-                        message:
-                           type: string
-                           example: ["User does not exist"]
+                    schema: 
+                      $ref: '#/components/schemas/ErrorModel'
         security:
             - bearer: []
         """
@@ -734,4 +729,4 @@ if __name__ == "__main__":
     cluster, bucket = connect_db()
     app.register_blueprint(api, url_prefix="/api")
     swagger = Swagger(app, template=swagger_template)
-    app.run(debug=False, host='0.0.0.0', port=8080, threaded=False)
+    app.run(debug=True, host='0.0.0.0', port=8080, threaded=False)
