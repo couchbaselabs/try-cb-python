@@ -55,7 +55,7 @@ app.config['SWAGGER'] = {
     'openapi': '3.0.5',
     'title': 'Python Travel Sample API',
     'version': '1.0',
-    'description': 'A sample API for getting started with Couchbase Server and the Python SDK.',
+    'description': 'A sample API for getting started with Couchbase Server and the SDK.',
     'termsOfService': ''
 }
 
@@ -65,7 +65,8 @@ swagger_template = {
             "bearer": {
                 "type": "http",
                 "scheme": "bearer",
-                "bearerFormat": "JWT"
+                "bearerFormat": "JWT",
+                "description": "JWT Authorization header using the Bearer scheme."
             }
         },
         "schemas": {
@@ -649,7 +650,8 @@ class HotelView(SwaggerView):
                             },
                             {
                               "address": "121 7th St, San Francisco, California, United States",
-                              "description": "Chain motel with a few more amenities than the typical Best Western; outdoor swimming pool, internet access, cafe on-site, pet friendly.",
+                              "description": "Chain motel with a few more amenities than the typical Best Western; outdoor swimming pool, \
+                                  internet access, cafe on-site, pet friendly.",
                               "name": "Best Western Americania"
                             }
                          ]
