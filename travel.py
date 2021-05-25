@@ -77,13 +77,6 @@ api = Blueprint("api", __name__)
 CORS(app, headers=['Content-Type', 'Authorization'])
 
 
-@app.route('/')
-def index():
-    """Returns the list of api endpoints"""
-    endpoints = [str(rule) for rule in app.url_map.iter_rules()]
-    return jsonify(endpoints)
-
-
 def lowercase(key):
     return key.lower()
 
@@ -312,9 +305,9 @@ class TenantUserView(SwaggerView):
                            type: string
                            example: ["Password does not match"]
         """
-        agent = make_user_key(tenant)
+        agent = lowercase(tenant)
         req = request.get_json()
-        user = make_user_key(req['user'])
+        user = lowercase(req['user'])
         password = req['password']
 
         scope = bucket.scope(agent)
@@ -400,9 +393,9 @@ class TenantUserView(SwaggerView):
                            type: string
                            example: ["User already exists"]
         """
-        agent = make_user_key(tenant)
+        agent = lowercase(tenant)
         req = request.get_json()
-        user = make_user_key(req['user'])
+        user = lowercase(req['user'])
         password = req['password']
 
         scope = bucket.scope(agent)
@@ -482,8 +475,8 @@ class TenantUserView(SwaggerView):
         security:
             - bearer: []
         """
-        agent = make_user_key(tenant)
-        user = make_user_key(username)
+        agent = lowercase(tenant)
+        user = lowercase(username)
 
         scope = bucket.scope(agent)
         users = scope.collection('users')
@@ -493,7 +486,7 @@ class TenantUserView(SwaggerView):
         if not auth(bearer, user):
             return abortmsg(401, 'Username does not match token username')
         try:
-            userdockey = make_user_key(username)
+            userdockey = lowercase(username)
             rv = users.lookup_in(userdockey, (SD.get('bookings'),))
             booked_flights = rv.content_as[list](0)
             rows = []
@@ -585,8 +578,8 @@ class TenantUserView(SwaggerView):
         security:
             - bearer: []
         """
-        agent = make_user_key(tenant)
-        user = make_user_key(username)
+        agent = lowercase(tenant)
+        user = lowercase(username)
 
         scope = bucket.scope(agent)
         users = scope.collection('users')
@@ -722,7 +715,7 @@ def convdate(rawdate):
 
 
 def genToken(username):
-    return jwt.encode({'user': make_user_key(username)}, JWT_SECRET, algorithm='HS256').decode("ascii")
+    return jwt.encode({'user': lowercase(username)}, JWT_SECRET, algorithm='HS256').decode("ascii")
 
 
 def auth(bearerHeader, username):
