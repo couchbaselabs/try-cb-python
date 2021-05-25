@@ -84,8 +84,8 @@ def index():
     return jsonify(endpoints)
 
 
-def make_user_key(username):
-    return username.lower()
+def lowercase(key):
+    return key.lower()
 
 
 class AirportView(SwaggerView):
