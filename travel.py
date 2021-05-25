@@ -70,33 +70,33 @@ swagger_template = {
             }
         },
         "schemas": {
-            "ErrorModel": {
+            "Error": {
                 "type": "object",
                 "properties": {
                     "message": {
                         "type": "string",
-                        "example": ["An error message"]
+                        "example": "An error message"
                     }
                 }
             },
-            "ContextModel": {
+            "Context": {
                 "type": "array",
                 "items": {"type": "string"}
             },
-            "ResultDataListModel": {
+            "ResultList": {
                 "type": "object",
                 "properties": {
-                    "context": {"$ref": "#/components/schemas/ContextModel"},
+                    "context": {"$ref": "#/components/schemas/Context"},
                     "data": {
                         "type": "array",
                         "items": {"type": "object"}
                     }
                 }
             },
-            "ResultDataObjectModel": {
+            "ResultSingleton": {
                 "type": "object",
                 "properties": {
-                    "context": {"$ref": "#/components/schemas/ContextModel"},
+                    "context": {"$ref": "#/components/schemas/Context"},
                     "data": {
                         "type": "object",
                     }
@@ -140,7 +140,7 @@ class AirportView(SwaggerView):
               content:
                 application/json:
                   schema:
-                    $ref: '#/components/schemas/ResultDataListModel' 
+                    $ref: '#/components/schemas/ResultList' 
                   example:
                     context: ["A description of a N1QL operation"]
                     data: [{"airportname": "San Francisco Intl"}]
@@ -209,7 +209,7 @@ class FlightPathsView(SwaggerView):
               content:
                 application/json:
                   schema:
-                    $ref: '#/components/schemas/ResultDataListModel'
+                    $ref: '#/components/schemas/ResultList'
                   example:
                     context: ["N1QL query - scoped to inventory: SELECT faa as fromAirport FROM `travel-sample`.inventory.airport \
                         WHERE airportname = $1 UNION SELECT faa as toAirport FROM `travel-sample`.inventory.airport WHERE airportname = $2"]
@@ -306,7 +306,7 @@ class TenantUserView(SwaggerView):
               content:
                 application/json:
                   schema:
-                    $ref: '#/components/schemas/ResultDataObjectModel' 
+                    $ref: '#/components/schemas/ResultSingleton' 
                   example:
                     context: ["KV get - scoped to tenant_agent_00.users: for password field in document user1"]
                     data: 
@@ -316,7 +316,7 @@ class TenantUserView(SwaggerView):
               content:
                 application/json:
                     schema: 
-                      $ref: '#/components/schemas/ErrorModel'
+                      $ref: '#/components/schemas/Error'
         """
         agent = lowercase(tenant)
         req = request.get_json()
@@ -383,7 +383,7 @@ class TenantUserView(SwaggerView):
               content:
                 application/json:
                   schema:
-                    $ref: '#/components/schemas/ResultDataObjectModel' 
+                    $ref: '#/components/schemas/ResultSingleton' 
                   example:
                     context: ["KV insert - scoped to tenant_agent_00.users: document user1"]
                     data:
@@ -393,7 +393,7 @@ class TenantUserView(SwaggerView):
               content:
                 application/json:
                     schema: 
-                      $ref: '#/components/schemas/ErrorModel'
+                      $ref: '#/components/schemas/Error'
         """
         agent = lowercase(tenant)
         req = request.get_json()
@@ -447,7 +447,7 @@ class TenantUserView(SwaggerView):
               content:
                 application/json:
                   schema:
-                    $ref: '#/components/schemas/ResultDataListModel'
+                    $ref: '#/components/schemas/ResultList'
                   example: 
                       context: ["KV get - scoped to tenant_agent_00.user: for 2 bookings in document user1"]
                       data: [
@@ -479,7 +479,7 @@ class TenantUserView(SwaggerView):
               content:
                 application/json:
                     schema: 
-                      $ref: '#/components/schemas/ErrorModel'
+                      $ref: '#/components/schemas/Error'
         security:
             - bearer: []
         """
@@ -554,7 +554,7 @@ class TenantUserView(SwaggerView):
               content:
                 application/json:
                   schema:
-                    $ref: '#/components/schemas/ResultDataListModel'
+                    $ref: '#/components/schemas/ResultSingleton'
                   example:
                     context: ["KV update - scoped to tenant_agent_00.user: for bookings field in document user1"]
                     data:
@@ -571,7 +571,7 @@ class TenantUserView(SwaggerView):
               content:
                 application/json:
                     schema: 
-                      $ref: '#/components/schemas/ErrorModel'
+                      $ref: '#/components/schemas/Error'
         security:
             - bearer: []
         """
@@ -639,7 +639,7 @@ class HotelView(SwaggerView):
               content:
                 application/json:
                   schema:
-                    $ref: '#/components/schemas/ResultDataListModel'
+                    $ref: '#/components/schemas/ResultList'
                   example:
                     context: ["FTS search - scoped to: inventory.hotel within fields address,city,state,country,name,description"]
                     data: [
