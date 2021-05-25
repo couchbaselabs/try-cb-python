@@ -77,6 +77,29 @@ swagger_template = {
                         "example": ["An error message"]
                     }
                 }
+            },
+            "ContextModel": {
+                "type": "array",
+                "items": {"type": "string"}
+            },
+            "ResultDataListModel": {
+                "type": "object",
+                "properties": {
+                    "context": {"$ref": "#/components/schemas/ContextModel"},
+                    "data": {
+                        "type": "array",
+                        "items": {"type": "object"}
+                    }
+                }
+            },
+            "ResultDataObjectModel": {
+                "type": "object",
+                "properties": {
+                    "context": {"$ref": "#/components/schemas/ContextModel"},
+                    "data": {
+                        "type": "object",
+                    }
+                }
             }
         }
     }
@@ -116,16 +139,10 @@ class AirportView(SwaggerView):
               content:
                 application/json:
                   schema:
-                    type: object
-                    properties:
-                      context:
-                        type: array
-                        format: string
-                        example: ["A description of a N1QL operation"]
-                      data:
-                        type: array
-                        format: object
-                        example: [{"airportname": "San Francisco Intl"}]
+                    $ref: '#/components/schemas/ResultDataListModel' 
+                  example:
+                    context: ["A description of a N1QL operation"]
+                    data: [{"airportname": "San Francisco Intl"}]
         """
 
         querytype = "N1QL query - scoped to inventory: "
@@ -191,25 +208,20 @@ class FlightPathsView(SwaggerView):
               content:
                 application/json:
                   schema:
-                    type: object
-                    properties:
-                      context:
-                        type: array
-                        format: string
-                        example: ["A description of a N1QL query"]
-                      data:
-                        type: array
-                        format: object
-                        example: [{
-                                    "destinationairport": "LAX",
-                                    "equipment": "738",
-                                    "flight": "AA331",
-                                    "flighttime": 1220,
-                                    "name": "American Airlines",
-                                    "price": 152.5,
-                                    "sourceairport": "SFO",
-                                    "utc": "16:37:00"
-                                }]
+                    $ref: '#/components/schemas/ResultDataListModel'
+                  example:
+                    context: ["N1QL query - scoped to inventory: SELECT faa as fromAirport FROM `travel-sample`.inventory.airport \
+                        WHERE airportname = $1 UNION SELECT faa as toAirport FROM `travel-sample`.inventory.airport WHERE airportname = $2"]
+                    data: [{
+                              "destinationairport": "LAX",
+                              "equipment": "738",
+                              "flight": "AA331",
+                              "flighttime": 1220,
+                              "name": "American Airlines",
+                              "price": 152.5,
+                              "sourceairport": "SFO",
+                              "utc": "16:37:00"
+                         }]
         """
 
         querytype = "N1QL query - scoped to inventory: "
@@ -293,18 +305,11 @@ class TenantUserView(SwaggerView):
               content:
                 application/json:
                   schema:
-                    type: object
-                    properties:
-                      context:
-                        type: array
-                        format: string
-                        example: ["A description of a KV operation"]
-                      data:
-                        type: object
-                        properties:
-                          token:
-                            type: string
-                            example: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoibXNfdXNlciJ9.GPs8two_vPVBpdqD7cz_yJ4X6J9yDTi6g7r9eWyAwEM
+                    $ref: '#/components/schemas/ResultDataObjectModel' 
+                  example:
+                    context: ["KV get - scoped to tenant_agent_00.users: for password field in document user1"]
+                    data: 
+                      token: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoibXNfdXNlciJ9.GPs8two_vPVBpdqD7cz_yJ4X6J9yDTi6g7r9eWyAwEM
             401:
               description: Returns an authentication error
               content:
@@ -377,18 +382,11 @@ class TenantUserView(SwaggerView):
               content:
                 application/json:
                   schema:
-                    type: object
-                    properties:
-                      context:
-                        type: array
-                        format: string
-                        example: ["A description of a KV operation"]
-                      data:
-                        type: object
-                        properties:
-                          token:
-                            type: string
-                            example: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoibXNfdXNlciJ9.GPs8two_vPVBpdqD7cz_yJ4X6J9yDTi6g7r9eWyAwEM
+                    $ref: '#/components/schemas/ResultDataObjectModel' 
+                  example:
+                    context: ["KV insert - scoped to tenant_agent_00.users: document user1"]
+                    data:
+                      token: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoibXNfdXNlciJ9.GPs8two_vPVBpdqD7cz_yJ4X6J9yDTi6g7r9eWyAwEM
             409:
               description: Returns a conflict error
               content:
@@ -440,31 +438,41 @@ class TenantUserView(SwaggerView):
               required: true
               schema:
                 type: string
-                example: user1
-                description: Username
+              example: user1
+              description: Username
         responses:
             200:
               description: Returns flight data and query context information
               content:
                 application/json:
                   schema:
-                    type: object
-                    properties:
-                      context:
-                        type: array
-                        format: string
-                        example: ["A description of a KV operation"]
-                      data:
-                        type: array
-                        format: object
-                        example: [{
-                                    "date": "12/12/2020",
-                                    "destinationairport": "Leonardo Da Vinci International Airport",
-                                    "flight": "12RF",
-                                    "name": "boeing",
-                                    "price": 50.0,
-                                    "sourceairport": "London (Gatwick)"
-                                 }]
+                    $ref: '#/components/schemas/ResultDataListModel'
+                  example: 
+                      context: ["KV get - scoped to tenant_agent_00.user: for 2 bookings in document user1"]
+                      data: [
+                              {
+                                "date": "05/24/2021",
+                                "destinationairport": "LAX",
+                                "equipment": "738",
+                                "flight": "AA655",
+                                "flighttime": 5383,
+                                "name": "American Airlines",
+                                "price": 672.88,
+                                "sourceairport": "SFO",
+                                "utc": "11:42:00"
+                              },
+                              {
+                                "date": "05/28/2021",
+                                "destinationairport": "SFO",
+                                "equipment": "738",
+                                "flight": "AA344",
+                                "flighttime": 6081,
+                                "name": "American Airlines",
+                                "price": 760.13,
+                                "sourceairport": "LAX",
+                                "utc": "20:47:00"
+                              }
+                            ]
             401:
               description: Returns an authentication error
               content:
@@ -532,38 +540,31 @@ class TenantUserView(SwaggerView):
                       type: array
                       format: string
                       example: [{
-                                   "name": "boeing",
-                                   "flight": "12RF",
-                                   "price": 50.0,
-                                   "date": "12/12/2020",
-                                   "sourceairport": "London (Gatwick)",
-                                   "destinationairport": "Leonardo Da Vinci International Airport"
+                                  "name": "boeing",
+                                  "flight": "12RF",
+                                  "price": 50.0,
+                                  "date": "12/12/2020",
+                                  "sourceairport": "London (Gatwick)",
+                                  "destinationairport": "Leonardo Da Vinci International Airport"
                                }]
         responses:
             200:
-              description: Returns login data and query context information
+              description: Returns flight data and query context information
               content:
                 application/json:
                   schema:
-                    type: object
-                    properties:
-                      context:
-                        type: array
-                        format: string
-                        example: ["A description of a KV operation"]
-                      data:
-                        type: object
-                        properties:
-                          added:
-                            type: object 
-                            example: {
-                                        "date": "12/12/2020",
-                                        "destinationairport": "Leonardo Da Vinci International Airport",
-                                        "flight": "12RF",
-                                        "name": "boeing",
-                                        "price": 50.0,
-                                        "sourceairport": "London (Gatwick)"
-                                     }
+                    $ref: '#/components/schemas/ResultDataListModel'
+                  example:
+                    context: ["KV update - scoped to tenant_agent_00.user: for bookings field in document user1"]
+                    data:
+                      added: {
+                               "date": "12/12/2020",
+                               "destinationairport": "Leonardo Da Vinci International Airport",
+                               "flight": "12RF",
+                               "name": "boeing",
+                               "price": 50.0,
+                               "sourceairport": "London (Gatwick)"
+                             }
             401:
               description: Returns an authentication error
               content:
@@ -637,27 +638,21 @@ class HotelView(SwaggerView):
               content:
                 application/json:
                   schema:
-                    type: object
-                    properties:
-                      context:
-                        type: array
-                        format: string
-                        example: ["A description of an FTS operation"]
-                      data:
-                        type: array
-                        format: object
-                        example: [
-                                   {
-                                       "address": "125 3rd St, San Francisco, California, United States", 
-                                       "description": "A historic and very upscale hotel with a spa, butler service, and on-site restaurant.", 
-                                       "name": "St. Regis Hotel"
-                                   },
-                                   {
-                                       "address": "480 Sutter St, San Francisco, California, United States", 
-                                       "description": "A trendy San Francisco boutique hotel. Formerly the Hotel 480, this hotel has been completely renovated to become a Marriott.", 
-                                       "name": "Marriott Union Square"
-                                   }
-                                ]
+                    $ref: '#/components/schemas/ResultDataListModel'
+                  example:
+                    context: ["FTS search - scoped to: inventory.hotel within fields address,city,state,country,name,description"]
+                    data: [
+                            {
+                              "address": "250 Beach St, San Francisco, California, United States",
+                              "description": "Nice hotel, centrally located (only two blocks from Pier 39). Heated outdoor swimming pool.",
+                              "name": "Radisson Hotel Fisherman's Wharf"
+                            },
+                            {
+                              "address": "121 7th St, San Francisco, California, United States",
+                              "description": "Chain motel with a few more amenities than the typical Best Western; outdoor swimming pool, internet access, cafe on-site, pet friendly.",
+                              "name": "Best Western Americania"
+                            }
+                         ]
         """
         qp = FT.ConjunctionQuery()
         if location != '*' and location != "":
