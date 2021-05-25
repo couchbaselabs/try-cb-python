@@ -53,7 +53,7 @@ app.config.from_object(__name__)
 app.config['CORS_HEADERS'] = 'Content-Type'
 app.config['SWAGGER'] = {
     'openapi': '3.0.5',
-    'title': 'Python Travel Sample API',
+    'title': 'Travel Sample API',
     'version': '1.0',
     'description': 'A sample API for getting started with Couchbase Server and the SDK.',
     'termsOfService': ''
@@ -110,6 +110,20 @@ swagger_template = {
 api = Blueprint("api", __name__)
 
 CORS(app, headers=['Content-Type', 'Authorization'])
+
+
+@app.route('/')
+def index():
+    """Returns the index page"""
+
+    return """
+    <h1> Python Travel Sample API </h1>
+    A sample API for getting started with Couchbase Server and the Python SDK.
+    <ul>
+    <li> <a href = "/apidocs"> Learn the API with Swagger, interactively </a>
+    <li> <a href = "https://github.com/couchbaselabs/try-cb-python"> GitHub </a>
+    </ul>
+    """
 
 
 def lowercase(key):
