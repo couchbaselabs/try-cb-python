@@ -18,10 +18,14 @@ services:
     container_name: try-cb-api
   
   frontend:
-      build: "https://github.com/couchbaselabs/try-cb-frontend-v2#master"
+      build: "https://github.com/osfameron/try-cb-frontend-v2.git#DOC-8135-travel-sample"
+      depends_on:
+        backend:
+          condition: service_started
       ports:
         - 8081:8081
       container_name: try-cb-fe
+      entrypoint: ["wait-for-it", "backend:8080", "--timeout=0", "--", "npm", "run", "serve"]
 
   db:
     image: couchbase/server-sandbox:7.0.0-beta
