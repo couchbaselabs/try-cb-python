@@ -50,9 +50,8 @@ print("Connecting to: " + CONNSTR)
 
 app = Flask(__name__)
 app.config.from_object(__name__)
-app.config['CORS_HEADERS'] = 'Content-Type'
 app.config['SWAGGER'] = {
-    'openapi': '3.0.5',
+    'openapi': '3.0.3',
     'title': 'Travel Sample API',
     'version': '1.0',
     'description': 'A sample API for getting started with Couchbase Server and the SDK.',
@@ -400,7 +399,7 @@ class TenantUserView(SwaggerView):
                       type: string
                       example: "password1"
         responses:
-            200:
+            201:
               description: Returns login data and query context information
               content:
                 application/json:
@@ -432,7 +431,7 @@ class TenantUserView(SwaggerView):
             respjson = jsonify(
                 {'data': {'token': genToken(user)}, 'context': [querytype + user]})
             response = make_response(respjson)
-            return response
+            return response, 201
 
         except DocumentExistsException:
             print("User {} item already exists".format(user))
@@ -580,14 +579,14 @@ class TenantUserView(SwaggerView):
                   example:
                     context: ["KV update - scoped to tenant_agent_00.user: for bookings field in document user1"]
                     data:
-                      added: {
+                      added: [{
                                "date": "12/12/2020",
                                "destinationairport": "Leonardo Da Vinci International Airport",
                                "flight": "12RF",
                                "name": "boeing",
                                "price": 50.0,
                                "sourceairport": "London (Gatwick)"
-                             }
+                             }]
             401:
               description: Returns an authentication error
               content:
@@ -619,7 +618,7 @@ class TenantUserView(SwaggerView):
                                                    flight_id, create_parents=True),))
             querytype = "KV update - scoped to {name}.user: for bookings field in document ".format(
                 name=scope.name)
-            resjson = {'data': {'added': newflight},
+            resjson = {'data': {'added': [newflight]},
                        'context': [querytype + user]}
             return make_response(jsonify(resjson))
         except DocumentNotFoundException:
@@ -631,7 +630,7 @@ class TenantUserView(SwaggerView):
 class HotelView(SwaggerView):
     """Class for storing Hotel search related information"""
 
-    @api.route('/hotels/<description>/<location>', methods=['GET'])
+    @api.route('/hotels/<description>/<location>/', methods=['GET'])
     @cross_origin(supports_credentials=True)
     def hotels(description, location):
         # Requires FTS index called 'hotels-index'
