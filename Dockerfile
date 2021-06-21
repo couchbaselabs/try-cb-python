@@ -20,4 +20,4 @@ RUN LCB_TAG=3.1.0 pip install -r requirements.txt
 EXPOSE 8080
 
 # Set the entrypoint 
-ENTRYPOINT ["./entrypoint.sh"]
+ENTRYPOINT ["./wait-for-couchbase.sh", "python", "travel.py"]

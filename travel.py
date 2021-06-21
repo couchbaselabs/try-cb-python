@@ -10,6 +10,7 @@ import jwt  # from PyJWT
 from couchbase.cluster import Cluster, ClusterOptions, PasswordAuthenticator
 from couchbase.exceptions import *
 from couchbase.search import SearchOptions
+from flasgger import Swagger, SwaggerView
 from flask import Flask, jsonify, make_response, request
 from flask.blueprints import Blueprint
 from flask_classy import FlaskView
@@ -24,6 +25,7 @@ from flask_cors import CORS, cross_origin
 
 DEFAULT_USER = "Administrator"
 PASSWORD = 'password'
+JWT_SECRET = 'cbtravelsample'
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-c', '--cluster', help='Connection String i.e. localhost')
@@ -48,7 +50,61 @@ print("Connecting to: " + CONNSTR)
 
 app = Flask(__name__)
 app.config.from_object(__name__)
-app.config['CORS_HEADERS'] = 'Content-Type'
+app.config['SWAGGER'] = {
+    'openapi': '3.0.3',
+    'title': 'Travel Sample API',
+    'version': '1.0',
+    'description': 'A sample API for getting started with Couchbase Server and the SDK.',
+    'termsOfService': ''
+}
+
+swagger_template = {
+    "components": {
+        "securitySchemes": {
+            "bearer": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+                "description": "JWT Authorization header using the Bearer scheme."
+            }
+        },
+        "schemas": {
+            "Error": {
+                "type": "object",
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "example": "An error message"
+                    }
+                }
+            },
+            "Context": {
+                "type": "array",
+                "items": {"type": "string"}
+            },
+            "ResultList": {
+                "type": "object",
+                "properties": {
+                    "context": {"$ref": "#/components/schemas/Context"},
+                    "data": {
+                        "type": "array",
+                        "items": {"type": "object"}
+                    }
+                }
+            },
+            "ResultSingleton": {
+                "type": "object",
+                "properties": {
+                    "context": {"$ref": "#/components/schemas/Context"},
+                    "data": {
+                        "type": "object",
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 api = Blueprint("api", __name__)
 
@@ -57,22 +113,59 @@ CORS(app, headers=['Content-Type', 'Authorization'])
 
 @app.route('/')
 def index():
-    """Returns the list of api endpoints"""
-    endpoints = [str(rule) for rule in app.url_map.iter_rules()]
-    return jsonify(endpoints)
+    """Returns the index page
+    ---
+    responses:
+        200:
+          description: Returns the API index page
+          content:
+            text/html:
+              example: <h1> Travel Sample API </h1>
+    """
+
+    return """
+    <h1> Python Travel Sample API </h1>
+    A sample API for getting started with Couchbase Server and the Python SDK.
+    <ul>
+    <li> <a href = "/apidocs"> Learn the API with Swagger, interactively </a>
+    <li> <a href = "https://github.com/couchbaselabs/try-cb-python"> GitHub </a>
+    </ul>
+    """
 
 
-def make_user_key(username):
-    return username.lower()
+def lowercase(key):
+    return key.lower()
 
 
-class AirportView(FlaskView):
+class AirportView(SwaggerView):
     """Airport class for airport objects in the database"""
 
     @api.route('/airports', methods=['GET', 'OPTIONS'])
     @cross_origin(supports_credentials=True)
     def airports():
-        """Returns list of matching airports and the source query"""
+        """Returns list of matching airports and the source query
+        ---
+        tags:
+        - airports
+        parameters:
+            - name: search
+              in: query
+              required: true
+              schema:
+                type: string
+              example: SFO
+              description: The airport name/code to search for
+        responses:
+            200:
+              description: Returns airport data and query context information
+              content:
+                application/json:
+                  schema:
+                    $ref: '#/components/schemas/ResultList' 
+                  example:
+                    context: ["A description of a N1QL operation"]
+                    data: [{"airportname": "San Francisco Intl"}]
+        """
 
         querytype = "N1QL query - scoped to inventory: "
 
@@ -97,15 +190,60 @@ class AirportView(FlaskView):
         return response
 
 
-class FlightPathsView(FlaskView):
+class FlightPathsView(SwaggerView):
     """ FlightPath class for computed flights between two airports FAA codes"""
 
     @api.route('/flightPaths/<fromloc>/<toloc>', methods=['GET', 'OPTIONS'])
     @cross_origin(supports_credentials=True)
     def flightPaths(fromloc, toloc):
         """
-        Return flights information, cost and more for a given flight time
-        and date
+        Return flights information, cost and more for a given flight time and date
+        ---
+        tags:
+        - flightPaths
+        parameters:
+            - name: fromloc
+              in: path
+              required: true
+              schema:
+                type: string
+              example: San Francisco Intl
+              description: Airport name for beginning route
+            - name: toloc
+              in: path
+              required: true
+              schema:
+                type: string
+              example: Los Angeles Intl
+              description: Airport name for end route
+            - name: leave
+              in: query
+              required: true
+              schema:
+                type: string
+                format: date
+              example: "05/24/2021"
+              description: Date of flight departure in `mm/dd/yyyy` format
+        responses:
+            200:
+              description: Returns flight data and query context information
+              content:
+                application/json:
+                  schema:
+                    $ref: '#/components/schemas/ResultList'
+                  example:
+                    context: ["N1QL query - scoped to inventory: SELECT faa as fromAirport FROM `travel-sample`.inventory.airport
+                    WHERE airportname = $1 UNION SELECT faa as toAirport FROM `travel-sample`.inventory.airport WHERE airportname = $2"]
+                    data: [{
+                              "destinationairport": "LAX",
+                              "equipment": "738",
+                              "flight": "AA331",
+                              "flighttime": 1220,
+                              "name": "American Airlines",
+                              "price": 152.5,
+                              "sourceairport": "SFO",
+                              "utc": "16:37:00"
+                         }]
         """
 
         querytype = "N1QL query - scoped to inventory: "
@@ -150,16 +288,60 @@ class FlightPathsView(FlaskView):
         return response
 
 
-class TenantUserView(FlaskView):
+class TenantUserView(SwaggerView):
     """Class for storing user related information for a given tenant"""
 
     @api.route('/tenants/<tenant>/user/login', methods=['POST', 'OPTIONS'])
     @cross_origin(supports_credentials=True)
     def login(tenant):
-        """Login an existing user"""
-        agent = make_user_key(tenant)
+        """Login an existing user for a given tenant agent
+        ---
+        tags:
+        - tenants
+        parameters:
+            - name: tenant
+              in: path
+              required: true
+              schema:
+                type: string
+              example: tenant_agent_00
+              description: Tenant agent name
+        requestBody:
+            content:
+              application/json:
+                schema:
+                  type: object
+                  required:
+                   - user
+                   - password
+                  properties:
+                    user:
+                      type: string
+                      example: "user1"
+                    password:
+                      type: string
+                      example: "password1"
+        responses:
+            200:
+              description: Returns login data and query context information
+              content:
+                application/json:
+                  schema:
+                    $ref: '#/components/schemas/ResultSingleton' 
+                  example:
+                    context: ["KV get - scoped to tenant_agent_00.users: for password field in document user1"]
+                    data: 
+                      token: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoibXNfdXNlciJ9.GPs8two_vPVBpdqD7cz_yJ4X6J9yDTi6g7r9eWyAwEM
+            401:
+              description: Returns an authentication error
+              content:
+                application/json:
+                    schema: 
+                      $ref: '#/components/schemas/Error'
+        """
+        agent = lowercase(tenant)
         req = request.get_json()
-        user = make_user_key(req['user'])
+        user = lowercase(req['user'])
         password = req['password']
 
         scope = bucket.scope(agent)
@@ -182,17 +364,61 @@ class TenantUserView(FlaskView):
         except NetworkException:
             print("Network error received - is Couchbase Server running on this host?")
         else:
-            return jsonify({'data': {'token': genToken(user)}, 'context': querytype + user})
+            return jsonify({'data': {'token': genToken(user)}, 'context': [querytype + user]})
 
         return abortmsg(401, "Failed to get user data")
 
     @api.route('/tenants/<tenant>/user/signup', methods=['POST', 'OPTIONS'])
     @cross_origin(supports_credentials=True)
     def signup(tenant):
-        """Signup a new user"""
-        agent = make_user_key(tenant)
+        """Signup a new user
+        ---
+        tags:
+        - tenants
+        parameters:
+            - name: tenant
+              in: path
+              required: true
+              schema:
+                type: string
+              example: tenant_agent_00
+              description: Tenant agent name
+        requestBody:
+            content:
+              application/json:
+                schema:
+                  type: object
+                  required:
+                   - user
+                   - password
+                  properties:
+                    user:
+                      type: string
+                      example: "user1"
+                    password:
+                      type: string
+                      example: "password1"
+        responses:
+            201:
+              description: Returns login data and query context information
+              content:
+                application/json:
+                  schema:
+                    $ref: '#/components/schemas/ResultSingleton' 
+                  example:
+                    context: ["KV insert - scoped to tenant_agent_00.users: document user1"]
+                    data:
+                      token: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoibXNfdXNlciJ9.GPs8two_vPVBpdqD7cz_yJ4X6J9yDTi6g7r9eWyAwEM
+            409:
+              description: Returns a conflict error
+              content:
+                application/json:
+                    schema: 
+                      $ref: '#/components/schemas/Error'
+        """
+        agent = lowercase(tenant)
         req = request.get_json()
-        user = make_user_key(req['user'])
+        user = lowercase(req['user'])
         password = req['password']
 
         scope = bucket.scope(agent)
@@ -203,9 +429,9 @@ class TenantUserView(FlaskView):
         try:
             users.insert(user, {'username': user, 'password': password})
             respjson = jsonify(
-                {'data': {'token': genToken(user)}, 'context': querytype + user})
+                {'data': {'token': genToken(user)}, 'context': [querytype + user]})
             response = make_response(respjson)
-            return response
+            return response, 201
 
         except DocumentExistsException:
             print("User {} item already exists".format(user))
@@ -214,72 +440,194 @@ class TenantUserView(FlaskView):
             print(e)
             return abortmsg(500, "Failed to save user")
 
-    @api.route('/tenants/<tenant>/user/<username>/flights', methods=['GET', 'PUT', 'OPTIONS'])
+    @api.route('/tenants/<tenant>/user/<username>/flights', methods=['GET', 'OPTIONS'])
     @cross_origin(supports_credentials=True)
-    def flights(tenant, username):
-        agent = make_user_key(tenant)
-        user = make_user_key(username)
+    def getflights(tenant, username):
+        """List the flights that have been reserved by a user
+        ---
+        tags:
+        - tenants
+        parameters:
+            - name: tenant
+              in: path
+              required: true
+              schema:
+                type: string
+              example: tenant_agent_00
+              description: Tenant agent name
+            - name: username
+              in: path
+              required: true
+              schema:
+                type: string
+              example: user1
+              description: Username
+        responses:
+            200:
+              description: Returns flight data and query context information
+              content:
+                application/json:
+                  schema:
+                    $ref: '#/components/schemas/ResultList'
+                  example: 
+                      context: ["KV get - scoped to tenant_agent_00.user: for 2 bookings in document user1"]
+                      data: [
+                              {
+                                "date": "05/24/2021",
+                                "destinationairport": "LAX",
+                                "equipment": "738",
+                                "flight": "AA655",
+                                "flighttime": 5383,
+                                "name": "American Airlines",
+                                "price": 672.88,
+                                "sourceairport": "SFO",
+                                "utc": "11:42:00"
+                              },
+                              {
+                                "date": "05/28/2021",
+                                "destinationairport": "SFO",
+                                "equipment": "738",
+                                "flight": "AA344",
+                                "flighttime": 6081,
+                                "name": "American Airlines",
+                                "price": 760.13,
+                                "sourceairport": "LAX",
+                                "utc": "20:47:00"
+                              }
+                            ]
+            401:
+              description: Returns an authentication error
+              content:
+                application/json:
+                    schema: 
+                      $ref: '#/components/schemas/Error'
+        security:
+            - bearer: []
+        """
+        agent = lowercase(tenant)
+        user = lowercase(username)
 
         scope = bucket.scope(agent)
         users = scope.collection('users')
         flights = scope.collection('bookings')
 
-        """List the flights that have been reserved by a user"""
-        if request.method == 'GET':
-            bearer = request.headers['Authorization']
-            if not auth(bearer, user):
-                return abortmsg(401, 'Username does not match token username')
+        bearer = request.headers['Authorization']
+        if not auth(bearer, user):
+            return abortmsg(401, 'Username does not match token username')
+        try:
+            userdockey = lowercase(username)
+            rv = users.lookup_in(userdockey, (SD.get('bookings'),))
+            booked_flights = rv.content_as[list](0)
+            rows = []
+            for key in booked_flights:
+                rows.append(flights.get(key).content_as[dict])
+            print(rows)
+            querytype = "KV get - scoped to {name}.user: for {num} bookings in document ".format(
+                name=scope.name, num=len(booked_flights))
+            respjson = jsonify({"data": rows, "context": [querytype + user]})
+            response = make_response(respjson)
+            return response
+        except DocumentNotFoundException:
+            return abortmsg(401, "User does not exist")
 
-            try:
-                userdockey = make_user_key(username)
-                rv = users.lookup_in(userdockey, (SD.get('bookings'),))
-                booked_flights = rv.content_as[list](0)
-                rows = []
-                for key in booked_flights:
-                    rows.append(flights.get(key).content_as[dict])
-                print(rows)
+    @api.route('/tenants/<tenant>/user/<username>/flights', methods=['PUT', 'OPTIONS'])
+    @cross_origin(supports_credentials=True)
+    def updateflights(tenant, username):
+        """Book a new flight for a user
+        ---
+        tags:
+        - tenants
+        parameters:
+            - name: tenant
+              in: path
+              required: true
+              schema:
+                type: string
+              example: tenant_agent_00
+              description: Tenant agent name
+            - name: username
+              in: path
+              required: true
+              schema:
+                type: string
+              example: user1
+              description: Username
+        requestBody:
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    flights:
+                      type: array
+                      format: string
+                      example: [{
+                                  "name": "boeing",
+                                  "flight": "12RF",
+                                  "price": 50.0,
+                                  "date": "12/12/2020",
+                                  "sourceairport": "London (Gatwick)",
+                                  "destinationairport": "Leonardo Da Vinci International Airport"
+                               }]
+        responses:
+            200:
+              description: Returns flight data and query context information
+              content:
+                application/json:
+                  schema:
+                    $ref: '#/components/schemas/ResultSingleton'
+                  example:
+                    context: ["KV update - scoped to tenant_agent_00.user: for bookings field in document user1"]
+                    data:
+                      added: [{
+                               "date": "12/12/2020",
+                               "destinationairport": "Leonardo Da Vinci International Airport",
+                               "flight": "12RF",
+                               "name": "boeing",
+                               "price": 50.0,
+                               "sourceairport": "London (Gatwick)"
+                             }]
+            401:
+              description: Returns an authentication error
+              content:
+                application/json:
+                    schema: 
+                      $ref: '#/components/schemas/Error'
+        security:
+            - bearer: []
+        """
+        agent = lowercase(tenant)
+        user = lowercase(username)
 
-                querytype = "KV get - scoped to {name}.user: for {num} bookings in document ".format(
-                    name=scope.name, num=len(booked_flights))
-                respjson = jsonify({"data": rows, "context": querytype + user})
-                response = make_response(respjson)
-                return response
+        scope = bucket.scope(agent)
+        users = scope.collection('users')
+        flights = scope.collection('bookings')
 
-            except DocumentNotFoundException:
-                return abortmsg(401, "User does not exist")
-
-        # """Book a new flight for a user"""
-        elif request.method == 'PUT':
-
-            bearer = request.headers['Authorization']
-            if not auth(bearer, user):
-                return abortmsg(401, 'Username does not match token username')
-
+        bearer = request.headers['Authorization']
+        if not auth(bearer, user):
+            return abortmsg(401, 'Username does not match token username')
+        try:
             newflight = request.get_json()['flights'][0]
             flight_id = str(uuid.uuid4())
-
-            try:
-                flights.upsert(flight_id, newflight)
-            except Exception as e:
-                print(e)
-                return abortmsg(500, "Failed to add flight data")
-
-            try:
-                users.mutate_in(user, (SD.array_append('bookings',
-                                                       flight_id, create_parents=True),))
-
-                querytype = "KV update - scoped to {name}.user: for bookings field in document ".format(
-                    name=scope.name)
-                resjson = {'data': {'added': newflight},
-                           'context': querytype + user}
-                return make_response(jsonify(resjson))
-            except DocumentNotFoundException:
-                return abortmsg(401, "User does not exist")
-            except Exception:
-                return abortmsg(500, "Couldn't update flights")
+            flights.upsert(flight_id, newflight)
+        except Exception as e:
+            print(e)
+            return abortmsg(500, "Failed to add flight data")
+        try:
+            users.mutate_in(user, (SD.array_append('bookings',
+                                                   flight_id, create_parents=True),))
+            querytype = "KV update - scoped to {name}.user: for bookings field in document ".format(
+                name=scope.name)
+            resjson = {'data': {'added': [newflight]},
+                       'context': [querytype + user]}
+            return make_response(jsonify(resjson))
+        except DocumentNotFoundException:
+            return abortmsg(401, "User does not exist")
+        except Exception:
+            return abortmsg(500, "Couldn't update flights")
 
 
-class HotelView(FlaskView):
+class HotelView(SwaggerView):
     """Class for storing Hotel search related information"""
 
     @api.route('/hotels/<description>/<location>/', methods=['GET'])
@@ -287,7 +635,48 @@ class HotelView(FlaskView):
     def hotels(description, location):
         # Requires FTS index called 'hotels-index'
         # TODO auto create index if missing
-        """Find hotels using full text search"""
+        """Find hotels using full text search
+        ---
+        tags:
+        - hotels
+        parameters:
+            - name: description 
+              in: path
+              required: false
+              schema:
+                type: string
+              example: pool
+              description: Hotel description keywords
+            - name: location
+              in: path
+              required: false
+              schema:
+                type: string
+              example: San Francisco
+              description: Hotel location 
+        responses:
+            200:
+              description: Returns hotel data and query context information
+              content:
+                application/json:
+                  schema:
+                    $ref: '#/components/schemas/ResultList'
+                  example:
+                    context: ["FTS search - scoped to: inventory.hotel within fields address,city,state,country,name,description"]
+                    data: [
+                            {
+                              "address": "250 Beach St, San Francisco, California, United States",
+                              "description": "Nice hotel, centrally located (only two blocks from Pier 39). Heated outdoor swimming pool.",
+                              "name": "Radisson Hotel Fisherman's Wharf"
+                            },
+                            {
+                              "address": "121 7th St, San Francisco, California, United States",
+                              "description": "Chain motel with a few more amenities than the typical Best Western; outdoor swimming pool,
+                                  internet access, cafe on-site, pet friendly.",
+                              "name": "Best Western Americania"
+                            }
+                         ]
+        """
         qp = FT.ConjunctionQuery()
         if location != '*' and location != "":
             qp.conjuncts.append(
@@ -322,7 +711,7 @@ class HotelView(FlaskView):
 
         querytype = "FTS search - scoped to: {name}.hotel within fields {fields}".format(
             name=scope.name, fields=','.join(cols))
-        response = {'data': results, 'context': querytype}
+        response = {'data': results, 'context': [querytype]}
         return jsonify(response)
 
 
@@ -338,19 +727,13 @@ def convdate(rawdate):
     return day.weekday()
 
 
-JWT_SECRET = 'cbtravelsample'
-
-
 def genToken(username):
-    return jwt.encode({'user': make_user_key(username)}, JWT_SECRET, algorithm='HS256').decode("ascii")
+    return jwt.encode({'user': lowercase(username)}, JWT_SECRET, algorithm='HS256').decode("ascii")
 
 
 def auth(bearerHeader, username):
     bearer = bearerHeader.split(" ")[1]
     return username == jwt.decode(bearer, JWT_SECRET)['user']
-
-
-app.register_blueprint(api, url_prefix="/api")
 
 
 def connect_db():
@@ -360,7 +743,8 @@ def connect_db():
     return cluster, bucket
 
 
-cluster, bucket = connect_db()
-
 if __name__ == "__main__":
-    app.run(debug=False, host='0.0.0.0', port=8080, threaded=False)
+    cluster, bucket = connect_db()
+    app.register_blueprint(api, url_prefix="/api")
+    swagger = Swagger(app, template=swagger_template)
+    app.run(debug=True, host='0.0.0.0', port=8080, threaded=False)
