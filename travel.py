@@ -138,7 +138,7 @@ class FlightPathsView(FlaskView):
 
         # http://localhost:5000/api/flightpaths/Nome/Teller%20Airport?leave=01/01/2016
         # should produce query with OME, TLA faa codes
-        resroutes = cluster.query(queryroutes, queryto, queryfrom, queryleave)
+        resroutes = cluster.query(queryroutes, queryfrom, queryto, queryleave)
         routelist = []
         for x in resroutes:
             x['flighttime'] = math.ceil(random() * 8000)
