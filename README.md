@@ -207,4 +207,4 @@ Check the test repo for details on how to run locally.
 [Swagger]: https://swagger.io/resources/open-api/
 [Vue]: https://vuejs.org/
 [Bootstrap]: https://getbootstrap.com/
-[try-cb-test] https://github.com/couchbaselabs/try-cb-test/
+[try-cb-test]: https://github.com/couchbaselabs/try-cb-test/
