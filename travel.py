@@ -341,7 +341,8 @@ class TenantUserView(SwaggerView):
         """
         agent = lowercase(tenant)
         req = request.get_json()
-        user = lowercase(req['user'])
+        user = req['user']
+        userdockey = lowercase(user)
         password = req['password']
 
         scope = bucket.scope(agent)
@@ -350,7 +351,7 @@ class TenantUserView(SwaggerView):
         querytype = "KV get - scoped to {name}.users: for password field in document ".format(
             name=scope.name)
         try:
-            doc_pass = users.lookup_in(user, (
+            doc_pass = users.lookup_in(userdockey, (
                 SD.get('password'),
             )).content_as[str](0)
 
@@ -418,7 +419,8 @@ class TenantUserView(SwaggerView):
         """
         agent = lowercase(tenant)
         req = request.get_json()
-        user = lowercase(req['user'])
+        user = req['user']
+        userdockey = lowercase(user)
         password = req['password']
 
         scope = bucket.scope(agent)
@@ -427,7 +429,7 @@ class TenantUserView(SwaggerView):
         querytype = "KV insert - scoped to {name}.users: document ".format(
             name=scope.name)
         try:
-            users.insert(user, {'username': user, 'password': password})
+            users.insert(userdockey, {'username': user, 'password': password})
             respjson = jsonify(
                 {'data': {'token': genToken(user)}, 'context': [querytype + user]})
             response = make_response(respjson)
@@ -470,7 +472,7 @@ class TenantUserView(SwaggerView):
                   schema:
                     $ref: '#/components/schemas/ResultList'
                   example: 
-                      context: ["KV get - scoped to tenant_agent_00.user: for 2 bookings in document user1"]
+                      context: ["KV get - scoped to tenant_agent_00.users: for 2 bookings in document user1"]
                       data: [
                               {
                                 "date": "05/24/2021",
@@ -505,26 +507,32 @@ class TenantUserView(SwaggerView):
             - bearer: []
         """
         agent = lowercase(tenant)
-        user = lowercase(username)
 
         scope = bucket.scope(agent)
         users = scope.collection('users')
         flights = scope.collection('bookings')
 
         bearer = request.headers['Authorization']
-        if not auth(bearer, user):
-            return abortmsg(401, 'Username does not match token username')
+        if not auth(bearer, username):
+            return abortmsg(401, 'Username does not match token username: ' + username)
         try:
             userdockey = lowercase(username)
-            rv = users.lookup_in(userdockey, (SD.get('bookings'),))
-            booked_flights = rv.content_as[list](0)
+            
+            rv = users.lookup_in(
+              userdockey,
+              [
+                SD.get('bookings'),
+                SD.exists('bookings')
+              ])
+            booked_flights = rv.content_as[list](0) if rv.exists(1) else []
+
             rows = []
             for key in booked_flights:
                 rows.append(flights.get(key).content_as[dict])
             print(rows)
-            querytype = "KV get - scoped to {name}.user: for {num} bookings in document ".format(
+            querytype = "KV get - scoped to {name}.users: for {num} bookings in document ".format(
                 name=scope.name, num=len(booked_flights))
-            respjson = jsonify({"data": rows, "context": [querytype + user]})
+            respjson = jsonify({"data": rows, "context": [querytype + userdockey]})
             response = make_response(respjson)
             return response
         except DocumentNotFoundException:
@@ -577,7 +585,7 @@ class TenantUserView(SwaggerView):
                   schema:
                     $ref: '#/components/schemas/ResultSingleton'
                   example:
-                    context: ["KV update - scoped to tenant_agent_00.user: for bookings field in document user1"]
+                    context: ["KV update - scoped to tenant_agent_00.users: for bookings field in document user1"]
                     data:
                       added: [{
                                "date": "12/12/2020",
@@ -604,8 +612,8 @@ class TenantUserView(SwaggerView):
         flights = scope.collection('bookings')
 
         bearer = request.headers['Authorization']
-        if not auth(bearer, user):
-            return abortmsg(401, 'Username does not match token username')
+        if not auth(bearer, username):
+            return abortmsg(401, 'Username does not match token username: ' + username)
         try:
             newflight = request.get_json()['flights'][0]
             flight_id = str(uuid.uuid4())
@@ -616,7 +624,7 @@ class TenantUserView(SwaggerView):
         try:
             users.mutate_in(user, (SD.array_append('bookings',
                                                    flight_id, create_parents=True),))
-            querytype = "KV update - scoped to {name}.user: for bookings field in document ".format(
+            querytype = "KV update - scoped to {name}.users: for bookings field in document ".format(
                 name=scope.name)
             resjson = {'data': {'added': [newflight]},
                        'context': [querytype + user]}
@@ -728,7 +736,7 @@ def convdate(rawdate):
 
 
 def genToken(username):
-    return jwt.encode({'user': lowercase(username)}, JWT_SECRET, algorithm='HS256').decode("ascii")
+    return jwt.encode({'user': username}, JWT_SECRET, algorithm='HS256').decode("ascii")
 
 
 def auth(bearerHeader, username):
