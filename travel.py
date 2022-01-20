@@ -23,28 +23,25 @@ from flask_cors import CORS, cross_origin
 # CONNSTR = 'couchbase://localhost/travel-sample?username=admin'
 # PASSWORD = 'admin123'
 
-DEFAULT_USER = "Administrator"
-PASSWORD = 'password'
+
 JWT_SECRET = 'cbtravelsample'
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-c', '--cluster', help='Connection String i.e. localhost')
+parser.add_argument('-c', '--cluster', help='Connection String i.e. localhost', default='db')
+parser.add_argument('-s', '--scheme', help='couchbase or couchbases', default='couchbase')
+parser.add_argument('-a', '--connectargs', help="?any_additional_args", default="")
 parser.add_argument('-u', '--user', help='User with access to bucket')
 parser.add_argument('-p', '--password',
                     help='Password of user with access to bucket')
 args = parser.parse_args()
 
-if args.cluster:
-    CONNSTR = "couchbase://" + args.cluster
-else:
-    # 'db' is an alias that resolves to the couchbase-server docker hostname.
-    # See `docker-compose.yml (line 25)`.
-    CONNSTR = "couchbase://db"
-if args.user and args.password:
-    print((args.user, args.password))
-    authenticator = PasswordAuthenticator(args.user, args.password)
-else:
-    authenticator = PasswordAuthenticator(DEFAULT_USER, PASSWORD)
+## CB Server
+
+if not args.cluster:
+  raise ConnectionError("No value for CB_HOST set!")
+
+CONNSTR = "{scheme}://{cluster}{connectargs}".format(**vars(args))
+authenticator = PasswordAuthenticator(args.user, args.password)
 
 print("Connecting to: " + CONNSTR)
 
