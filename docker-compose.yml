@@ -1,17 +1,85 @@
 version: "3.9"
 
+# usage:
+
+###### run local database, backend, and frontend
+#  $ docker-compose --profile local up         
+
+###### run local backend and frontend against a database in Couchbase Capella cloud
+#  $ CB_HOST=cb.{your-host}.cloud.couchbase.com  docker-compose --profile capella up
+
+###### run local database OR backend OR frontend in a mix-and match style
+#  $ docker-compose up db
+
+#  $ CB_HOST=...
+#  $ CB_USER=...
+#  $ CB_PSWD=...
+#  # docker-compose up backend
+
+#  $ docker-compose up frontend
+
+###### run developer tests against the travel-sample backend
+#  $ docker-compose up test        
+
 services:
+  db:
+    image: couchbase/server-sandbox:7.0.0
+    ports:
+      - "8091-8095:8091-8095"
+      - "9102:9102"
+      - "11210:11210"
+    expose:
+      - "8091"
+      - "8094"
+    container_name: couchbase-sandbox-7.0.0
+    profiles:
+      - local
+      - mix-and-match
+      - test
+
   backend:
     build: .
-    depends_on:
-      - db
+    ports:
+      - 8080:8080
+    environment:
+      - CB_HOST
+      - CB_USER
+      - CB_PSWD
+    command: -c ${CB_HOST:-db} -u ${CB_USER:-Administrator} -p ${CB_PSWD:-password}
+    volumes:
+      - .:/app
+    container_name: try-cb-api
+    profiles:
+      - local
+      - mix-and-match
+      - test
+
+  capella-backend:
+    build: .
+    environment:
+      - CB_HOST
+      - CB_USER
+      - CB_PSWD
+    entrypoint: ["python", "travel.py"]
+    command: -c ${CB_HOST:-""} -u ${CB_USER:-cbdemo} -p "${CB_PSWD:-Password123!}" -s couchbases -a ?ssl=no_verify
     ports:
       - 8080:8080
     volumes:
       - .:/app
-    container_name: try-cb-api
-  
+    container_name: try-cb-api-cap
+    profiles:
+      - capella
+
   frontend:
+    build: "https://github.com/couchbaselabs/try-cb-frontend-v2.git#7.0"
+    ports:
+      - 8081:8081
+    container_name: try-cb-fe-mm
+    profiles:
+      - mix-and-match
+            
+  # frontend - Local frontend, depends on backend
+  local-frontend:
       build: "https://github.com/couchbaselabs/try-cb-frontend-v2.git#7.0"
       depends_on:
         - backend
@@ -19,25 +87,27 @@ services:
         - 8081:8081
       container_name: try-cb-fe
       entrypoint: ["wait-for-it", "backend:8080", "--timeout=400", "--strict", "--", "npm", "run", "serve"]
+      profiles:
+        - local
 
-  db:
-    image: couchbase/server-sandbox:7.0.0
-    ports:
-      - "8091-8095:8091-8095"
-      - "9102:9102"
-      - "11210:11210"
-    expose: # expose ports 8091 & 8094 to other containers (mainly for backend)
-      - "8091"
-      - "8094"
-    container_name: couchbase-sandbox-7.0.0
-
+  capella-frontend:
+      build: "https://github.com/couchbaselabs/try-cb-frontend-v2.git#7.0"
+      depends_on:
+        - capella-backend
+      ports:
+        - 8081:8081
+      container_name: try-cb-fe-cap
+      entrypoint: ["wait-for-it", "capella-backend:8080", "--timeout=400", "--strict", "--", "npm", "run", "serve"]
+      profiles:
+        - capella
+    
   test:
     build: "https://github.com/couchbaselabs/try-cb-test.git#main"
     depends_on:
+      - db
       - backend
     environment:
       BACKEND_BASE_URL: http://backend:8080
     entrypoint: ["wait-for-it", "backend:8080", "--timeout=400", "--strict", "--", "bats", "travel-sample-backend.bats"]
     profiles:
       - test
-
