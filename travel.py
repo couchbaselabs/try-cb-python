@@ -1,7 +1,6 @@
 from datetime import datetime
 import math
 import json
-import uuid
 from random import random
 import jwt  # from PyJWT
 import argparse
@@ -12,12 +11,11 @@ from flask import make_response, redirect
 from flask.views import View
 from flask_classy import FlaskView, route
 
-from couchbase.cluster import Cluster
-from couchbase.cluster import ClusterOptions
-from couchbase_core.cluster import PasswordAuthenticator
-from couchbase.cluster import QueryOptions
-from couchbase.search import MatchQuery, SearchOptions
-import couchbase_core.subdocument as SD
+from couchbase.cluster import Cluster, QueryOptions
+from couchbase.options import ClusterOptions
+from couchbase.auth import PasswordAuthenticator
+from couchbase.search import SearchOptions
+import couchbase.subdocument as SD
 import couchbase.search as FT
 from couchbase.exceptions import *
 
@@ -74,24 +72,24 @@ class Airport(View):
         """Returns list of matching airports and the source query"""
 
         querystr = request.args['search']
-        #queryparams = request.args['search']
+        queryparams = request.args['search']
         queryprep = "SELECT airportname FROM `travel-sample` WHERE "
         sameCase = querystr == querystr.lower() or querystr == querystr.upper()
         if sameCase and len(querystr) == 3:
             queryprep += "faa = $1"
-            queryargs = [querystr.upper()]
-            #queryparams = querystr.upper()
+            #queryargs = [querystr.upper()]
+            queryparams = querystr.upper()
         elif sameCase and len(querystr) == 4:
             queryprep += "icao = $1"
-            queryargs = [querystr.upper()]
-            #queryparams = querystr.upper()
+            #queryargs = [querystr.upper()]
+            queryparams = querystr.upper()
         else:
             queryprep += "LOWER(airportname) LIKE $1"
-            queryargs = [querystr.lower() + '%']
-            #queryparams = querystr.lower()
-        res = cluster.query(queryprep, *queryargs)
+            #queryargs = [querystr.lower() + '%']
+            queryparams = querystr.lower()
+        #res = cluster.query(queryprep, *queryargs)
         # alternate in SDK3
-        #res = cluster.query(queryprep, QueryOptions(positional_parameters=[queryparams]))
+        res = cluster.query(queryprep, QueryOptions(positional_parameters=[queryparams]))
         #for row in res: print(res)
         airportslist = [x for x in res]
         context = [queryprep]
@@ -167,13 +165,13 @@ class UserView(FlaskView):
             if doc_pass != password:
                 return abortmsg(401, "Password does not match")
 
-        except SubdocPathNotFoundError:
+        except SD.SubdocPathNotFoundError:
             print("Password for user {} item does not exist".format(user))
-        except NotFoundError:
+        except SD.NotFoundError:
             print("User {} item does not exist".format(user))
-        except CouchbaseTransientError:
+        except SD.CouchbaseTransientError:
             print("Transient error received - has Couchbase stopped running?")
-        except CouchbaseNetworkError:
+        except SD.CouchbaseNetworkError:
             print("Network error received - is Couchbase Server running on this host?")
         else:
             return jsonify({'data': {'token': genToken(user)}})
@@ -226,7 +224,7 @@ class UserView(FlaskView):
                 response = make_response(respjson)
                 return response
 
-            except NotFoundError:
+            except SD.NotFoundError:
                 return abortmsg(500, "User does not exist")
 
          # """Book a new flight for a user"""
@@ -245,9 +243,9 @@ class UserView(FlaskView):
                 resjson = {'data': {'added': newflight},
                            'context': 'Update document ' + userdockey}
                 return make_response(jsonify(resjson))
-            except NotFoundError:
+            except SD.NotFoundError:
                 return abortmsg(500, "User does not exist")
-            except CouchbaseDataError:
+            except SD.CouchbaseDataError:
                 return abortmsg(409, "Couldn't update flights")
 
 
@@ -308,11 +306,11 @@ def convdate(rawdate):
 
 JWT_SECRET = 'cbtravelsample'
 def genToken(username):
-    return jwt.encode({'user': username.lower()}, JWT_SECRET).decode("ascii")
+    return jwt.encode({'user': username.lower()}, JWT_SECRET)
 
 def auth(bearerHeader, username):
     bearer = bearerHeader.split(" ")[1]
-    return username == jwt.decode(bearer, JWT_SECRET)['user']
+    return username == jwt.decode(bearer, JWT_SECRET, algorithms=['HS256'])['user']
 
 
 # Setup pluggable Flask views routing system
@@ -330,11 +328,12 @@ def connect_db():
     cluster = Cluster(CONNSTR, ClusterOptions(authenticator))
     static_bucket = cluster.bucket('travel-sample')
     collection = static_bucket.default_collection()
+    #bucket = cluster._cluster.open_bucket('travel-sample', lockmode=LOCKMODE_WAIT) #work around to set lockmode
+    #collection = bucket.default_collection()
     return collection
 
 cluster = Cluster(CONNSTR, ClusterOptions(authenticator))
-static_bucket = cluster.bucket('travel-sample')
 db = connect_db()
 
 if __name__ == "__main__":
-    app.run(debug=False, host='0.0.0.0', port=8080)
+    app.run(debug=True, host='0.0.0.0', port=8080)
