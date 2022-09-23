@@ -2,7 +2,7 @@
 FROM ubuntu:18.04
 
 # File Author / Maintainer
-MAINTAINER Couchbase
+LABEL org.opencontainers.image.authors="Couchbase"
 
 # Update the sources list
 RUN apt-get update
