@@ -5,6 +5,8 @@ from random import random
 import jwt  # from PyJWT
 import argparse
 import requests
+import couchbase.subdocument as SD
+import couchbase.search as FT
 
 from flask import Flask, request, jsonify, abort, send_from_directory
 from flask import make_response, redirect
@@ -14,9 +16,7 @@ from flask_classy import FlaskView, route
 from couchbase.cluster import Cluster, QueryOptions
 from couchbase.options import ClusterOptions
 from couchbase.auth import PasswordAuthenticator
-from couchbase.search import SearchOptions
-import couchbase.subdocument as SD
-import couchbase.search as FT
+from couchbase.options import SearchOptions
 from couchbase.exceptions import *
 
 # For Couchbase Server 5.0 there must be a username and password
@@ -276,8 +276,7 @@ class HotelView(FlaskView):
 
         q = cluster.search_query('hotels', qp, SearchOptions(limit=100))
         results = []
-
-        cols = ['address','city', 'state', 'country', 'name','description','id']
+        cols = ['address','city', 'state', 'country', 'name', 'description', 'id']
         for row in q.rows():
             subdoc = db.lookup_in(row.id, tuple(SD.get(x) for x in cols))
             # Get the address fields from the document, if they exist
@@ -333,6 +332,7 @@ def connect_db():
     return collection
 
 cluster = Cluster(CONNSTR, ClusterOptions(authenticator))
+static_bucket = cluster.bucket('travel-sample')
 db = connect_db()
 
 if __name__ == "__main__":
