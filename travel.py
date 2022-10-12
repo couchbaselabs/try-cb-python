@@ -280,13 +280,17 @@ class HotelView(FlaskView):
         for row in q.rows():
             subdoc = db.lookup_in(row.id, tuple(SD.get(x) for x in cols))
             # Get the address fields from the document, if they exist
-            addr = ', '.join(subdoc.content_as[str](c) for c in cols[:4]
-                             if subdoc.content_as[str](c) != "None")
-            subresults = dict((c, subdoc.content_as[str](c)) for c in cols)
+            addr = ', '.join(str(v['value']) for v in subdoc.value[:4] if type(v['value']) != None)
+        
+            subresults = dict()
+            for v in enumerate(subdoc.value):
+                subresults[cols[v[0]]] = v[1]['value']
+
             subresults['address'] = addr
             subresults['id'] = "hotel"+row.id
+            print("addr: ", addr)
+            print("subr: ", subresults)
             results.append(subresults)
-
 
         response = {'data': results}
         return jsonify(response)
