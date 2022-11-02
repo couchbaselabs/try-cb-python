@@ -30,7 +30,8 @@ DEFAULT_USER = "Administrator"
 PASSWORD = 'password'
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-c', '--cluster', help='Connection String i.e. localhost')
+parser.add_argument('-c', '--cluster', help='Connection String for Couchbase Server i.e. localhost')
+parser.add_argument('-s', '--sgw', help='Connection String for Sync Gateway i.e. localhost')
 parser.add_argument('-u', '--user', help='User with access to bucket')
 parser.add_argument('-p', '--password', help='Password of user with access to bucket')
 args = parser.parse_args()
@@ -188,7 +189,8 @@ class UserView(FlaskView):
         # Create sync gateway user
         try:
             headerInfo = {'Content-type': 'application/json', 'Accept': 'application/json'}
-            sgUrl = "http://localhost:4985/travel-sample/_user/"
+            sgDomain = args.sgw if args.sgw else 'localhost'
+            sgUrl = "http://%(sgDomain):4985/travel-sample/_user/"%(sgDomain)
             sgValues = json.dumps({"name" : user, "password" : rawpassword})
             sgUser = requests.post(sgUrl, headers=headerInfo, data=sgValues)
             # print(sgValues)
