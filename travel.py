@@ -190,7 +190,8 @@ class UserView(FlaskView):
         try:
             headerInfo = {'Content-type': 'application/json', 'Accept': 'application/json'}
             sgDomain = args.sgw if args.sgw else 'localhost'
-            sgUrl = "http://%(sgDomain):4985/travel-sample/_user/"%(sgDomain)
+            sgUrl = "http://{}:4985/travel-sample/_user/".format(sgDomain)
+            print("url:" , sgUrl)
             sgValues = json.dumps({"name" : user, "password" : rawpassword})
             sgUser = requests.post(sgUrl, headers=headerInfo, data=sgValues)
             # print(sgValues)
