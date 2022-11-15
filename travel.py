@@ -6,8 +6,9 @@ from random import random
 
 import couchbase.search as FT
 import couchbase.subdocument as SD
-import jwt  # from PyJWT
-from couchbase.cluster import Cluster, ClusterOptions, PasswordAuthenticator
+import jwt # from PyJWT
+from couchbase.auth import PasswordAuthenticator
+from couchbase.cluster import Cluster, ClusterOptions
 from couchbase.exceptions import *
 from couchbase.search import SearchOptions
 from flasgger import Swagger, SwaggerView

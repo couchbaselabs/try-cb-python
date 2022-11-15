@@ -76,7 +76,7 @@ function createHotelsIndex() {
 }
 
 ##### Script starts here #####
-ATTEMPTS=150
+ATTEMPTS=15
 
 wait-for $ATTEMPTS \
   ":8091/pools/default/buckets/travel-sample/scopes/" \

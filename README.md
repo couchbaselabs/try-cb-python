@@ -125,9 +125,10 @@ CB_HOST={your-host-url} docker-compose --profile capella up
 
 First of all, [sign up for a Capella account and deploy a cluster](https://docs.couchbase.com/cloud/get-started/get-started.html).
 
-The travel app uses the travel Sample data, which is imported in the cluster by default.
-To check this, go to buckets (in the top menu).
-You should see a travel-sample bucket with around 63k items.
+The travel app uses the travel Sample data. After creating a cluster, go to the Tools dropdown menu and select "Import".
+There should be an option at the bottom to import the "Travel Sample" bucket.
+This data will be used to support the backend requests that are made. See the `swagger.json` file for more details about those requests.
+After you completed the import, you should see a `travel-sample` bucket under the "Buckets" tab in your Capella UI with around 63k items.
 
 ### Configure the Connection
 
