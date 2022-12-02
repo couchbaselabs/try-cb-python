@@ -8,7 +8,8 @@ import couchbase.search as FT
 import couchbase.subdocument as SD
 import jwt # from PyJWT
 from couchbase.auth import PasswordAuthenticator
-from couchbase.cluster import Cluster, ClusterOptions
+from couchbase.cluster import Cluster, ClusterTimeoutOptions
+from couchbase.options import ClusterOptions
 from couchbase.exceptions import *
 from couchbase.search import SearchOptions
 from flasgger import Swagger, SwaggerView
@@ -16,6 +17,7 @@ from flask import Flask, jsonify, make_response, request
 from flask.blueprints import Blueprint
 from flask_classy import FlaskView
 from flask_cors import CORS, cross_origin
+from datetime import timedelta
 
 # For Couchbase Server 5.0 there must be a username and password
 # User must have full access to read/write bucket/data and
@@ -23,7 +25,6 @@ from flask_cors import CORS, cross_origin
 # Cluster Administrator user may be used
 # CONNSTR = 'couchbase://localhost/travel-sample?username=admin'
 # PASSWORD = 'admin123'
-
 
 JWT_SECRET = 'cbtravelsample'
 
@@ -36,13 +37,19 @@ parser.add_argument('-p', '--password',
                     help='Password of user with access to bucket')
 args = parser.parse_args()
 
-## CB Server
-
 if not args.cluster:
   raise ConnectionError("No value for CB_HOST set!")
 
 CONNSTR = "{scheme}://{cluster}{connectargs}".format(**vars(args))
 authenticator = PasswordAuthenticator(args.user, args.password)
+
+# get a reference to our cluster
+options = ClusterOptions(authenticator)
+
+# Sets a pre-configured profile called "wan_development" to help avoid latency issues
+# when accessing Capella from a different Wide Area Network
+# or Availability Zone(e.g. your laptop).
+options.apply_profile('wan_development')
 
 print("Connecting to: " + CONNSTR)
 
