@@ -8,16 +8,14 @@ import couchbase.search as FT
 import couchbase.subdocument as SD
 import jwt # from PyJWT
 from couchbase.auth import PasswordAuthenticator
-from couchbase.cluster import Cluster, ClusterTimeoutOptions
+from couchbase.cluster import Cluster
 from couchbase.options import ClusterOptions
 from couchbase.exceptions import *
 from couchbase.search import SearchOptions
 from flasgger import Swagger, SwaggerView
 from flask import Flask, jsonify, make_response, request
 from flask.blueprints import Blueprint
-from flask_classy import FlaskView
 from flask_cors import CORS, cross_origin
-from datetime import timedelta
 
 # For Couchbase Server 5.0 there must be a username and password
 # User must have full access to read/write bucket/data and
@@ -49,7 +47,8 @@ options = ClusterOptions(authenticator)
 # Sets a pre-configured profile called "wan_development" to help avoid latency issues
 # when accessing Capella from a different Wide Area Network
 # or Availability Zone(e.g. your laptop).
-options.apply_profile('wan_development')
+if args.scheme == 'couchbases':
+  options.apply_profile('wan_development')
 
 print("Connecting to: " + CONNSTR)
 

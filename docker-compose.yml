@@ -23,15 +23,15 @@ version: "3.9"
 
 services:
   db:
-    image: couchbase/server-sandbox:7.1.0
+    image: couchbase/server-sandbox:7.0.0
     ports:
-      - "8000-8005:8000-8005"
+      - "8091-8095:8091-8095"
       - "9102:9102"
-      - "11200:11200"
+      - "11210:11210"
     expose:
-      - "8001"
-      - "8004"
-    container_name: couchbase-sandbox-7.1.0
+      - "8091"
+      - "8094"
+    container_name: couchbase-sandbox-7.0.0
     profiles:
       - local
       - mix-and-match
@@ -96,7 +96,6 @@ services:
         - capella-backend
       ports:
         - 8081:8081
-        
       container_name: try-cb-fe-cap
       entrypoint: ["wait-for-it", "capella-backend:8080", "--timeout=400", "--strict", "--", "npm", "run", "serve"]
       profiles:

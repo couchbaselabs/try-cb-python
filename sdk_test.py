@@ -11,9 +11,9 @@ from couchbase.options import SearchOptions
 from couchbase.search import QueryStringQuery, SearchOptions
 
 # Update this to your cluster
-# endpoint = < your capella instance Wide Area Network >
-# username = <your database credentials username value>
-# password = <your database crednentials password value >
+# endpoint = "<connection string>"
+# username = "<username>"
+# password = "<password>"
 bucket_name = "travel-sample"
 # User Input ends here.
 
@@ -85,9 +85,17 @@ def search_airport_inventory(search_string):
         print("Couchbase Error:"+str(e))
     except Exception as ex:
         print("Error:"+str(ex))
+
+# gets multiple airports using the airport keys detailed below
+def get_multi_airports():
+    keys = ['airport_507', 'airport_1254', 'airport_1255']
+    res = cb_coll.get_multi(keys)
     
+    for k, v in res.results.items():
+        print(f'Doc {k} has value: {v.content_as[dict]}')
 
 # uncomment each and run file to see output
+# get_multi_airports()
 
 # search_airport_inventory("Heathrow")
 
