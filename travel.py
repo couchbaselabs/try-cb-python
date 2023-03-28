@@ -16,12 +16,13 @@ from flask.blueprints import Blueprint
 from flask_classy import FlaskView
 from flask_cors import CORS, cross_origin
 
-# For Couchbase Server 5.0 there must be a username and password
+# From Couchbase Server 5.0 onward, there must be a username and password.
 # User must have full access to read/write bucket/data and
-# Read access for Query and Search
-# Cluster Administrator user may be used
-# CONNSTR = 'couchbase://localhost/travel-sample?username=admin'
-# PASSWORD = 'admin123'
+# read access for Query and Search.
+# The username and password are set in `wait-for-couchbase.sh`
+# CONNSTR = 'couchbase://db'
+# USERNAME = 'Administrator'
+# PASSWORD = 'password'
 
 
 JWT_SECRET = 'cbtravelsample'
@@ -31,8 +32,8 @@ parser.add_argument('-c', '--cluster', help='Connection String i.e. localhost', 
 parser.add_argument('-s', '--scheme', help='couchbase or couchbases', default='couchbase')
 parser.add_argument('-a', '--connectargs', help="?any_additional_args", default="")
 parser.add_argument('-u', '--user', help='User with access to bucket')
-parser.add_argument('-p', '--password',
-                    help='Password of user with access to bucket')
+parser.add_argument('-p', '--password', help='Password of user with access to bucket')
+
 args = parser.parse_args()
 
 ## CB Server
@@ -40,7 +41,7 @@ args = parser.parse_args()
 if not args.cluster:
   raise ConnectionError("No value for CB_HOST set!")
 
-CONNSTR = "{scheme}://{cluster}{connectargs}".format(**vars(args))
+CONNSTR = f"{args.scheme}://{args.cluster}{args.connectargs}"
 authenticator = PasswordAuthenticator(args.user, args.password)
 
 print("Connecting to: " + CONNSTR)
