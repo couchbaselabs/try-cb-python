@@ -113,7 +113,7 @@ In order to make changes in the Python API and familiarize yourself with the SDK
 
 To end the application press <kbd>Control</kbd>+<kbd>C</kbd> in the terminal and wait for docker-compose to gracefully stop your containers.
 
-## Run the database in Capella
+## Run the Database in Capella
 
 To run the database in Couchbase Capella, the invocation is as straight-forward, but there are currently a few more setup steps:
 
@@ -121,53 +121,64 @@ To run the database in Couchbase Capella, the invocation is as straight-forward,
 CB_HOST={your-host-url} docker-compose --profile capella up
 ```
 
-### Create a Capella cluster
+### Create the Capella Cluster
 
-First of all, [sign up for a Capella account and deploy a cluster](https://docs.couchbase.com/cloud/get-started/get-started.html).
+First, [sign up for a Capella account](https://docs.couchbase.com/cloud/get-started/get-started.html) and deploy a cluster.
 
-The travel app uses the travel Sample data, which is imported in the cluster by default.
-To check this, go to buckets (in the top menu).
-You should see a travel-sample bucket with around 63k items.
+The travel app uses the `travel-sample` data bucket, which is imported in the cluster by default. To check this, go to **Data Tools > Buckets**. You should see the `travel-sample` bucket with around 63k items.
 
-### Configure the Connection
+If the bucket isn't present, you can import it manually. See [Import](https://docs.couchbase.com/cloud/clusters/data-service/import-data-documents.html) for information about how to import the `travel-sample` bucket.
 
-From the _Connect_ tab, make a note of your cluster's url, which will look something like:
+### Create the Search index
 
-    cb.dmt-i0huhchusg9g.cloud.couchbase.com
+1. Go to **Data Tools > Search > Create Search Index**
+2. Click **Import from File**
+3. Navigate to the try-cb-python directory, and select `fts-hotels-index.json`
+4. Click **Create Index**
 
-#### Create the DB credentials
+If you don't have access to the filesystem with the sample application backend, you can copy and paste the index defintion from [this repository](https://raw.githubusercontent.com/couchbaselabs/try-cb-python/HEAD/fts-hotels-index.json) into the **Index Definition** field.
 
-Create the credentials to log in: _Connect -> Database Access -> Manage Credentials_
+### Create the Database Access
 
-* Bucket: `travel-sample`
+Create the credentials to log in **Settings > Database Access > Create Database Access**
+
+* Access Name: cbdemo
+* Secret: Password123!
+* Bucket: travel-sample
 * Scopes: All Scopes
 * Access: read/write
-* Username: `cbdemo`
-* Password: `Password123!`
 
-#### Whitelist your IP Address
+Click **Create Database Access** to save your access credentials.
 
-Choose _Connect -> Connection -> Manage Allowed IP_.
+### Whitelist your IP
 
-Click on 'Add my IP' to whitelist the IP address you are currently using.
+Go to **Settings > Allowed IP Ranges > Add Allowed IP**.
 
-### Create the Full Text Search index
+Enter the IP of the system you will be running the application on in the *Allowed IP* field. If this system is the same one you are accessing the Couchbase Capella Web Console on, you can click **Add Current IP Address**.
 
-Click on _Tools -> Full Text Search -> Import Index_
+Click **Add Allowed IP** to add the IP address.
 
-Fill in the form with:
+### Copy the Connection String
 
-* Name: `hotels-index`
-* Bucket: `travel-sample`
-* Code editor: copy/paste [this file](https://raw.githubusercontent.com/couchbaselabs/try-cb-python/HEAD/fts-hotels-index.json)
+From the **Connect** tab, copy your cluster's connection string, which looks something like:
+
+```
+couchbases://cb.dmt-i0huhchusg9g.cloud.couchbase.com
+```
 
 ### Start the backend and frontend
 
-You will usually only need to set the `CB_HOST` variable to point the backend to your database.
-If you chose a different username and password than the demo ones above, then you will also need to set these.
+Run the following command to start the application.
 
 ```
-CB_HOST={your-host-url}
+CB_HOST={your-connection-string} docker-compose --profile capella up
+```
+
+You will only need to set the `CB_HOST` variable to point the backend to your database.
+If you chose a different username and password than the demo ones, then you will also need to set these.
+
+```
+CB_HOST={your-connection-string}
 # CB_USER=... 
 # CB_PSWD=...
 
@@ -180,7 +191,7 @@ In the provided `docker-compose.yml`, we've looked at the two profiles `local` a
 As we saw, these set up dependencies between the services, to  sets up dependencies between the services to make startup as smooth and automatic as possible.
 This means that by the time you log into the Frontend UI, the backend is ready to serve API calls, and the Couchbase database has all the data, indexes, and connections to serve the DB requests.
 
-But of course you have the flexibility to start any combination of `backend`,`frontend`, `db` via Docker, and take responsibility for starting the other services yourself. 
+You have the flexibility to start any combination of `backend`,`frontend`, `db` via Docker, and take responsibility for starting the other services yourself. 
 We'll look at a few useful scenarios here.
 
 ### Bring your own database
