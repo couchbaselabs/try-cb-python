@@ -1,20 +1,23 @@
 import argparse
 import math
 import uuid
+import jwt  # from PyJWT
 from datetime import datetime
 from random import random
-
-import couchbase.search as FT
-import couchbase.subdocument as SD
-import jwt  # from PyJWT
-from couchbase.cluster import Cluster, ClusterOptions, PasswordAuthenticator
-from couchbase.exceptions import *
-from couchbase.search import SearchOptions
 from flasgger import Swagger, SwaggerView
 from flask import Flask, jsonify, make_response, request
 from flask.blueprints import Blueprint
 from flask_classy import FlaskView
 from flask_cors import CORS, cross_origin
+
+# Couchbase Imports
+import couchbase.search as FT
+from couchbase.search import SearchOptions
+import couchbase.subdocument as SD
+from couchbase.cluster import Cluster
+from couchbase .options import ClusterOptions
+from couchbase.auth import PasswordAuthenticator
+from couchbase.exceptions import *
 
 # From Couchbase Server 5.0 onward, there must be a username and password.
 # User must have full access to read/write bucket/data and
@@ -41,11 +44,15 @@ args = parser.parse_args()
 if not args.cluster:
   raise ConnectionError("No value for CB_HOST set!")
 
-CONNSTR = f"{args.scheme}://{args.cluster}{args.connectargs}"
+if ("couchbases://" in args.cluster) or ("couchbase://" in args.cluster):
+	CONNSTR = f"{args.cluster}{args.connectargs}"
+else:
+	CONNSTR = f"{args.scheme}://{args.cluster}{args.connectargs}"
+        
 authenticator = PasswordAuthenticator(args.user, args.password)
-
 print("Connecting to: " + CONNSTR)
 
+# Initalise the web app
 app = Flask(__name__)
 app.config.from_object(__name__)
 app.config['SWAGGER'] = {
@@ -108,7 +115,7 @@ api = Blueprint("api", __name__)
 
 CORS(app, headers=['Content-Type', 'Authorization'])
 
-
+# The default API endpoint
 @app.route('/')
 def index():
     """Returns the index page
@@ -134,7 +141,7 @@ def index():
 def lowercase(key):
     return key.lower()
 
-
+# These classes purely for organising the API documentation into sections
 class AirportView(SwaggerView):
     """Airport class for airport objects in the database"""
 
