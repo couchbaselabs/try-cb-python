@@ -1,6 +1,6 @@
 couchbase==3.2.2
 DateTime==4.1.1
-Flask==1.1.2
+Flask==2.3.2
 Flask-Classy==0.6.10
 itsdangerous==0.24
 Jinja2==2.11.3
