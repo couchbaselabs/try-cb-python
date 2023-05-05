@@ -1,12 +1,12 @@
 # Couchbase Python travel-sample Application REST Backend
 
 This is a sample application for getting started with [Couchbase Server] and the [Python SDK].
-The application runs a single page web UI for demonstrating SQL++ (N1QL), Sub-document requests and Full Text Search (FTS) querying capabilities.
+The application runs a single page web UI for demonstrating SQL++ (N1QL), Sub-document requests and Search (FTS) querying capabilities.
 It uses Couchbase Server together with the [Flask] web framework for [Python], [Swagger] for API documentation, [Vue] and [Bootstrap].
 
-The application is a flight planner that allows the user to search for and select a flight route (including the return flight) based on airports and dates.
-Airport selection is done dynamically using an autocomplete box bound to N1QL queries on the server side. After selecting a date, it then searches
-for applicable air flight routes from a previously populated database. An additional page allows users to search for Hotels using less structured keywords.
+The application is a flight planner that allows the user to search for and select a flight route based on airports and dates.
+Airport selection is dynamic, using an autocomplete box bound to N1QL queries on the server side. After selecting a date, it then searches
+for applicable air flight routes from a populated database. An additional page allows users to search for Hotels using less structured keywords.
 
 ![Application](app.png)
 
@@ -18,28 +18,28 @@ To download the application you can either download [the archive](https://github
 git clone https://github.com/couchbaselabs/try-cb-python.git
 ```
 
-We recommend running the application with Docker, which starts up all components for you, but you can also run it in a Mix-and-Match style, which we'll describe below.
+Couchbase recommends running the application with Docker, which starts all components for you. You can also run it in a Mix-and-Match style, described below.
 
-## Running the application with Docker
+## Running the Application with Docker
 
-You will need [Docker](https://docs.docker.com/get-docker/) installed on your machine in order to run this application as we have defined a [_Dockerfile_](Dockerfile) and a [_docker-compose.yml_](docker-compose.yml) to run the three components required:
+You need [Docker](https://docs.docker.com/get-docker/) installed on your machine to run this application. A [_Dockerfile_](Dockerfile) and a [_docker-compose.yml_](docker-compose.yml) run the three components:
 
 * `db`: the Couchbase Server 7.x
 * `backend`: the Python REST API from this repository
 * `frontend`: [Vue app](https://github.com/couchbaselabs/try-cb-frontend-v2.git) 
 
-To launch all three components locally, you can simply run this command from a terminal:
+To launch all three components locally, you can run this command from a terminal:
 
 ```
 docker-compose --profile local up
 ```
 > **_NOTE:_** You may need more than the default RAM to run the images.
-We have tested the travel-sample apps with 4.5 GB RAM configured in Docker's Preferences... -> Resources -> Memory.
-When you run the application for the first time, it will pull/build the relevant docker images, so it might take a bit of time.
+Couchbase have tested the travel-sample apps with 4.5 GB RAM configured in Docker's Preferences -> Resources -> Memory.
+When you run the application for the first time, it pulls/builds the relevant docker images, so may take some time to complete.
 
-This will start the Python backend, Couchbase Server 7.0.0 and the Vue frontend app.
+This starts the Python backend, Couchbase Server 7.0.0 and the Vue frontend app.
 
-You can access the backend API on `http://localhost:8080/`, the UI on `http://localhost:8081/` and Couchbase Server at `http://localhost:8091/`.
+You can find the backend API on `http://localhost:8080/`, the UI on `http://localhost:8081/` and Couchbase Server at `http://localhost:8091/`.
 
 ```
 ❯ docker-compose --profile local up
@@ -107,15 +107,15 @@ try-cb-fe   |   To create a production build, run npm run build.
 try-cb-fe   | 
 ```
 
-You should then be able to browse the UI, search for US airports and get flight route information.
+You should then be able to browse the UI, search for American airports, and get flight route information.
 
-In order to make changes in the Python API and familiarize yourself with the SDK, you can update the `travel.py` file and save it. This will reload the backend server almost instantly.
+To make changes in the Python API and familiarize yourself with the SDK, you can update the `travel.py` file and save it. This reloads the backend server almost instantly.
 
-To end the application press <kbd>Control</kbd>+<kbd>C</kbd> in the terminal and wait for docker-compose to gracefully stop your containers.
+To end the application press <kbd>Control</kbd>+<kbd>C</kbd> in the terminal and wait for docker-compose to stop your containers.
 
 ## Run the Database in Capella
 
-To run the database in Couchbase Capella, the invocation is as straight-forward, but there are currently a few more setup steps:
+To run the database in Couchbase Capella, the invocation is as straight-forward, but there are more setup steps:
 
 ```
 CB_HOST={your-host-url} docker-compose --profile capella up
@@ -125,7 +125,7 @@ CB_HOST={your-host-url} docker-compose --profile capella up
 
 First, [sign up for a Capella account](https://docs.couchbase.com/cloud/get-started/get-started.html) and deploy a cluster.
 
-The travel app uses the `travel-sample` data bucket, which is imported in the cluster by default. To check this, go to **Data Tools > Buckets**. You should see the `travel-sample` bucket with around 63k items.
+The travel app uses the `travel-sample` data bucket, which the cluster imports by default. To verify this, go to **Data Tools > Buckets**. You should see the `travel-sample` bucket with around 63k items.
 
 If the bucket isn't present, you can import it manually. See [Import](https://docs.couchbase.com/cloud/clusters/data-service/import-data-documents.html) for information about how to import the `travel-sample` bucket.
 
@@ -136,7 +136,7 @@ If the bucket isn't present, you can import it manually. See [Import](https://do
 3. Navigate to the try-cb-python directory, and select `fts-hotels-index.json`
 4. Click **Create Index**
 
-If you don't have access to the filesystem with the sample application backend, you can copy and paste the index defintion from [this repository](https://raw.githubusercontent.com/couchbaselabs/try-cb-python/HEAD/fts-hotels-index.json) into the **Index Definition** field.
+If you can't use the filesystem with the backend, you can copy + paste the index defintion from [this repository](https://raw.githubusercontent.com/couchbaselabs/try-cb-python/HEAD/fts-hotels-index.json) into the **Index Definition** field.
 
 ### Create the Database Access
 
@@ -150,7 +150,7 @@ Create the credentials to log in **Settings > Database Access > Create Database 
 
 Click **Create Database Access** to save your access credentials.
 
-### Whitelist your IP
+### Whitelist Your IP
 
 Go to **Settings > Allowed IP Ranges > Add Allowed IP**.
 
@@ -166,7 +166,7 @@ From the **Connect** tab, copy your cluster's connection string, which looks som
 couchbases://cb.dmt-i0huhchusg9g.cloud.couchbase.com
 ```
 
-### Start the backend and frontend
+### Start the Backend and Frontend
 
 Run the following command to start the application.
 
@@ -174,8 +174,8 @@ Run the following command to start the application.
 CB_HOST={your-connection-string} docker-compose --profile capella up
 ```
 
-You will only need to set the `CB_HOST` variable to point the backend to your database.
-If you chose a different username and password than the demo ones, then you will also need to set these.
+You only need to set the `CB_HOST` variable to point the backend to your database.
+If you chose a different username and password than the demo ones, then you also need to set these.
 
 ```
 CB_HOST={your-connection-string}
@@ -185,20 +185,20 @@ CB_HOST={your-connection-string}
 docker-compose --profile capella up
 ```
 
-## Mix-and-Match services
+## Mix-and-Match Services
 
-In the provided `docker-compose.yml`, we've looked at the two profiles `local` and `capella` above.
-As we saw, these set up dependencies between the services, to  sets up dependencies between the services to make startup as smooth and automatic as possible.
-This means that by the time you log into the Frontend UI, the backend is ready to serve API calls, and the Couchbase database has all the data, indexes, and connections to serve the DB requests.
+Explored above are the `local` and `capella` profiles provided in the `docker-compose.yml`.
+These initalise dependencies between the services, to make startup as smooth and automatic as possible.
+This means that by the time you log into the frontend UI, the backend and database are ready to serve API calls.
 
-You have the flexibility to start any combination of `backend`,`frontend`, `db` via Docker, and take responsibility for starting the other services yourself. 
-We'll look at a few useful scenarios here.
+You have the flexibility to start any combination of `backend`,`frontend` or `db` via Docker, taking responsibility for starting the other services yourself. 
+Following are 3 useful scenarios:
 
-### Bring your own database
+### Bring Your Own Database
 
 > **_NOTE:_** See above for specific details on running your database in Couchbase Capella.
 
-If you wish to run this application against your own configuration of Couchbase Server, you will need version 7.0.0 or later with the `travel-sample` bucket setup.
+To run this application against your own configuration of Couchbase Server, you need version 7.0.0 or later with the `travel-sample` bucket setup.
 
 First configure your database details:
 
@@ -208,19 +208,19 @@ CB_USER=...
 CB_PSWD=...
 ```
 
-Then simply start the backend and frontend services only:
+Then start the backend and frontend services only:
 
 ```
 docker-compose up backend frontend
 ```
 
-The `backend` docker service uses a wrapper we have provided called `wait-for-couchbase.sh` which checks the database state, and creates the Full Text Search index.
+The `backend` docker service uses a wrapper called `wait-for-couchbase.sh` which checks the database state, and creates the Search index.
 
 > **_NOTE_**: If you are choosing to run the backend without this wrapper, see below for how to create the index manually.
 
-### Running the backend manually
+### Running the Backend Manually
 
-If you want to run the Python API yourself without using Docker, you will need to ensure that you have `Python 3.7` or higher installed on your machine.
+If you want to run the Python API yourself without using Docker, you need to have `Python 3.7` or later installed on your machine.
 You may still use Docker to run the Database and Frontend components if desired.
 
 Install the dependencies:
@@ -229,14 +229,14 @@ Install the dependencies:
 python3 -m pip install -r requirements.txt
 ```
 
-If you already have an existing Couchbase server running and correctly configured, you might run:
+If you already have an existing Couchbase server running and properly configured, you can run:
 
 ```
 python3 travel.py -c $CB_HOST -u $CB_USER -p $CB_PSWD
 ```
 
-Note that the first time you run against a new database image, you may want to use the provided
-`wait-for-couchbase.sh` wrapper to ensure that all indexes are created.
+The first time you run against a new database image, you may want to use the provided
+`wait-for-couchbase.sh` wrapper to verify the creation of the indexes.
 
 For example, using the Docker image provided:
 
@@ -259,34 +259,33 @@ curl --fail -s -u $CB_USER:$CB_PSWD -X PUT \
         -d @fts-hotels-index.json
 ```
 
-Finally, if you want to see how the sample frontend Vue application works with your changes,
+If you want to see how the sample frontend Vue application works with your changes,
 run it with:
 
 ```
 docker-compose up frontend
 ```
 
-### Running the frontend manually
+### Running the Frontend Manually
 
 To run the frontend components manually without Docker, follow the guide
 [here](https://github.com/couchbaselabs/try-cb-frontend-v2)
 
 
-## REST API reference, and tests.
+## REST API Reference, and Tests
 
-All the travel-sample apps conform to the same interface, which means that they can all be used with the same database configuration and Vue.js frontend.
+All the travel-sample apps conform to the same interface, which means that they can all use the same database configuration and Vue.js frontend.
 
-We've integrated Swagger/OpenApi version 3 documentation which can be accessed on the backend at `http://localhost:8080/apidocs` once you have started the app.
+Swagger/OpenApi version 3 documentation exists on the backend at `http://localhost:8080/apidocs` once you have started the app.
+You can also view a read-only version at https://docs.couchbase.com/python-sdk/current/hello-world/sample-application.html#
 
-(You can also view a read-only version at https://docs.couchbase.com/python-sdk/current/hello-world/sample-application.html#)
-
-To further ensure that every app conforms to the API, we have a [test suite][try-cb-test], which you can simply run with the command:
+To make sure that every app conforms to the API, there is a [test suite][try-cb-test], which you can run with the command:
 
 ```
 docker-compose --profile test up test
 ```
 
-Best practice for running tests Mix-and-Match style are WIP. Something like the following might work on Mac:
+Best practices for running tests Mix-and-Match style are still in development. Something like the following may work on Mac:
 
 ```
 BACKEND_BASE_URL=http://host.docker.internal:8080 docker-compose up test
