@@ -15,18 +15,26 @@ import couchbase.search as FT
 from couchbase.search import SearchOptions
 import couchbase.subdocument as SD
 from couchbase.cluster import Cluster
-from couchbase .options import ClusterOptions
+from couchbase.options import ClusterOptions
 from couchbase.auth import PasswordAuthenticator
 from couchbase.exceptions import *
 
 # From Couchbase Server 5.0 onward, there must be a username and password.
-# User must have full access to read/write bucket/data and
-# read access for Query and Search.
-# The username and password are set in `wait-for-couchbase.sh`
+# User must have full access to read/write bucket/data and read access for
+# Query and Search.
+# The default username and password are set in `wait-for-couchbase.sh`
+# -----------LOCAL-----------
 # CONNSTR = 'couchbase://db'
 # USERNAME = 'Administrator'
 # PASSWORD = 'password'
+# ----------CAPELLA----------
+# CONNSTR = 'couchbases://db'
+# USERNAME = 'cbdemo'
+# PASSWORD = 'Password123!'
+# ---------------------------
 
+# Editing this file? Replicate your changes in the 'sample-app.py' file in
+# the 'docs-sdk-python' repo to have these changes appear in the tutorial.x
 
 JWT_SECRET = 'cbtravelsample'
 
@@ -39,7 +47,7 @@ parser.add_argument('-p', '--password', help='Password of user with access to bu
 
 args = parser.parse_args()
 
-## CB Server
+# Init CB connection parameters
 
 if not args.cluster:
   raise ConnectionError("No value for CB_HOST set!")
@@ -141,7 +149,6 @@ def index():
 def lowercase(key):
     return key.lower()
 
-# These classes purely for organising the API documentation into sections
 class AirportView(SwaggerView):
     """Airport class for airport objects in the database"""
 
@@ -365,10 +372,8 @@ class TenantUserView(SwaggerView):
 
         except DocumentNotFoundException:
             print("User {} item does not exist".format(user))
-        except CouchbaseTransientException:
-            print("Transient error received - has Couchbase stopped running?")
-        except NetworkException:
-            print("Network error received - is Couchbase Server running on this host?")
+        except AmbiguousTimeoutException or UnAmbiguousTimeoutException:
+            print("Request timed out - has Couchbase stopped running?")
         else:
             return jsonify({'data': {'token': genToken(user)}, 'context': [querytype + user]})
 
