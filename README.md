@@ -136,7 +136,7 @@ If the bucket isn't present, you can import it manually. See [Import](https://do
 3. Navigate to the try-cb-python directory, and select `fts-hotels-index.json`
 4. Click **Create Index**
 
-If you can't use the filesystem with the backend, you can copy + paste the index defintion from [this repository](https://raw.githubusercontent.com/couchbaselabs/try-cb-python/HEAD/fts-hotels-index.json) into the **Index Definition** field.
+If you can't use the filesystem with the backend, you can copy + paste the index definition from [this repository](https://raw.githubusercontent.com/couchbaselabs/try-cb-python/HEAD/fts-hotels-index.json) into the **Index Definition** field.
 
 ### Create the Database Access
 
@@ -188,7 +188,7 @@ docker-compose --profile capella up
 ## Mix-and-Match Services
 
 Explored above are the `local` and `capella` profiles provided in the `docker-compose.yml`.
-These initalise dependencies between the services, to make startup as smooth and automatic as possible.
+These initialize dependencies between the services, to make startup as smooth and automatic as possible.
 This means that by the time you log into the frontend UI, the backend and database are ready to serve API calls.
 
 You have the flexibility to start any combination of `backend`,`frontend` or `db` via Docker, taking responsibility for starting the other services yourself. 
