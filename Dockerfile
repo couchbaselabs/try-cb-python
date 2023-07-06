@@ -1,17 +1,4 @@
-FROM python:3.9-slim-buster
-
-LABEL maintainer="Couchbase"
-
-WORKDIR /app
-
-RUN apt-get update && apt-get install -y \
-    build-essential cmake \
-    git-all libssl-dev \
-    jq curl
-
-ADD . /app 
-
-RUN pip install -r requirements.txt
+FROM sample-app-python
 
 # Expose ports
 EXPOSE 8080
