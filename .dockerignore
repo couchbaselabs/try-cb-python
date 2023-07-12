@@ -1,0 +1,7 @@
+.dockerignore
+Dockerfile
+docker-compose.yml
+mix-and-match.yml
+README.md
+LICENSE.md
+app.png

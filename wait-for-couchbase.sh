@@ -87,7 +87,7 @@ wait-for $ATTEMPTS \
   '.status == "ok"'
 
 if (wait-for 1 ":8094/api/index/hotels-index" '.status == "ok"'); then
-  log "index already exists"
+  log index already exists
 else
   createHotelsIndex
   wait-for $ATTEMPTS \

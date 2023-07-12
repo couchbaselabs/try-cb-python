@@ -50,6 +50,10 @@ args = parser.parse_args()
 
 if not args.cluster:
   raise ConnectionError("No value for CB_HOST set!")
+if not args.user:
+    raise ConnectionError("No value for CB_USER set!")
+if not args.password:
+    raise ConnectionError("No value for CB_PSWD set!")
 
 if ("couchbases://" in args.cluster) or ("couchbase://" in args.cluster):
 	CONNSTR = f"{args.cluster}{args.connectargs}"
