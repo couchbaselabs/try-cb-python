@@ -42,7 +42,7 @@ version: "3.9"
 # creates the backend and frontend like `server`, with
 # capella user/pass/schema.
 #
-# local - local db, builds the backend image from this
+# local-server - local db, builds the backend image from this
 # repo and mounts the container on this directory. The
 # frontend is built from the Github repo as usual.
 #
@@ -66,7 +66,7 @@ services:
     container_name: couchbase-sandbox-7.0.0
     profiles:
       - server
-      - local
+      - local-server
       - mix-and-match
       - test
 
@@ -116,7 +116,7 @@ services:
     command: -c ${CB_HOST:-db} -u ${CB_USER:-Administrator} -p ${CB_PSWD:-password}
     container_name: local-backend-python
     profiles:
-      - local
+      - local-server
       - mix-and-match
       - test
 
@@ -197,7 +197,7 @@ services:
       container_name: server-frontend
       entrypoint: ["wait-for-it", "local-backend:8080", "--timeout=400", "--strict", "--", "npm", "run", "serve"]
       profiles:
-        - local
+        - local-server
 
   local-capella-frontend:
       build: "https://github.com/couchbaselabs/try-cb-frontend-v2.git#7.0"
