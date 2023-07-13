@@ -17,7 +17,7 @@ To download the application you can either download [the archive](https://github
     git clone https://github.com/couchbaselabs/try-cb-python.git
 
 You can run the application with Docker, which starts all components for you.
-You can also run it in a Mix-and-Match style, described below.
+You can also run it in a Mix-and-Match style, described [here](#mix-and-match-services).
 
 
 ## Running the Application with Docker
@@ -27,7 +27,7 @@ A provided [_Dockerfile_](Dockerfile) and a [_docker-compose.yml_](docker-compos
 
 To launch the full application, run this command from a terminal:
 
-    docker-compose --profile local up
+    docker compose --profile server up
 
 > **_NOTE:_** You may need more than the default RAM to run the images.
 Couchbase have tested the travel-sample apps with 4.5 GB RAM configured in Docker's Preferences -> Resources -> Memory.
@@ -43,15 +43,11 @@ You should then be able to browse the UI, search for airports and get flight rou
 To end the application press <kbd>Control</kbd>+<kbd>C</kbd> in the terminal
 and wait for `docker-compose` to stop your containers.
 
-Should you want to make any changes, the backend code runs on mounted files in Docker, so any changes are instantly reflected in the container.
+Running the application with the `server` profile pulls an image containing a prebuilt version of the backend. If you want to make changes to the backend, you can run the application with the `local` profile, detailed [here](#editing-the-backend). 
 
 ## Run the Database in Capella
 
 To run the database in Couchbase Capella, the invocation is as straight-forward, but there are more setup steps:
-
-```
-CB_HOST={your-host-url} docker-compose --profile capella up
-```
 
 ### Create the Capella Cluster
 
@@ -61,7 +57,7 @@ The travel application uses the `travel-sample` data bucket, which the cluster i
 
 If the bucket isn't present, you can import it manually. See [Import](https://docs.couchbase.com/cloud/clusters/data-service/import-data-documents.html) for information about how to import the `travel-sample` bucket.
 
-### Create the Search index
+### Create the Search Index
 
 1. Go to **Data Tools > Search > Create Search Index**
 2. Click **Import from File**
@@ -110,11 +106,11 @@ You only need to set the `CB_HOST` variable to point the backend to your databas
 If you chose a different username and password than the demo ones, then you also need to set these.
 
 ```
-CB_HOST={your-connection-string}
-# CB_USER=... 
-# CB_PSWD=...
+$ CB_HOST={your-connection-string}
+$ CB_USER={your-username}
+$ CB_PSWD={your-password}
 
-docker-compose --profile capella up
+docker compose --profile capella up
 ```
 ## Mix and Match Services
 
@@ -146,7 +142,7 @@ bucket setup.
 
 With a running Couchbase Server, you can pass the database details in:
 
-    CB_HOST=10.144.211.101 CB_USER=Administrator CB_PSWD=password docker-compose -f mix-and-match.yml up backend frontend
+    CB_HOST=10.144.211.101 CB_USER=Administrator CB_PSWD=password docker compose -f mix-and-match.yml up backend frontend
 
 The Docker image runs the same checks as usual, and also creates the
 `hotels-index` if it doesn't already exist.
@@ -160,24 +156,43 @@ You can still use Docker to run the Database and Frontend components if desired.
 > **_NOTE:_** See above for specific details on running your database in Couchbase Capella.
 
 1. Make sure you have `Python 3.7` or later installed on your machine.
-2. Copy the `requirements.txt` file from the sample-app-python folder in the [parent image repository](https://github.com/couchbaselabs/sample-app-parent-images) to the sample application directory
-3. Install the project dependencies by running:
+2. Install the project dependencies by running:
    `pip install -r requirements.txt`
-4. Start the database:
+3. Start the database:
    `docker compose -f mix-and-match.yml up -d db`
    `export CB_HOST=localhost CB_USER=Administrator CB_PSWD=password`
    `./wait-for-couchbase.sh echo Couchbase is ready!`
    The `wait-for-couchbase` wrapper waits until the database has started, and loaded the sample data and indexes.
    If the database is already running, you can skip this step
-5. Start the backend:
+4. Start the backend:
    `python3 travel.py -c $CB_HOST -u $CB_USER -p $CB_PSWD`
-6. Start the frontend:
+5. Start the frontend:
    `docker-compose -f mix-and-match.yml up frontend`
 
 ### Running the Frontend Manually
 
 To run the frontend components manually without Docker, follow the guide
 [here](https://github.com/couchbaselabs/try-cb-frontend-v2)
+
+## Editing the Backend
+
+You may want to make changes to the backend, without running it manually. Couchbase have provided a profile in the `docker-compose.yml` to run the backend mounted on the code in this directory. This allows you to make changes to the backend code, and see it instantly reflected in the container.
+
+To start the application in this mode, run the command:
+
+    docker compose --profile server-local up
+
+If your database is running in Capella, run this command instead:
+
+    $ CB_HOST={your-connection-string}
+    $ CB_USER={your-username}
+    $ CB_PSWD={your-password}
+
+    docker compose --profile capella-local up
+
+You still need to complete all the [setup steps](#run-the-database-in-capella).
+
+> **_NOTE:_** As this mode does not use a prebuilt image, you may encounter dependency issues when building the backend image. 
 
 
 ## REST API Reference and Tests
