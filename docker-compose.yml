@@ -1,25 +1,57 @@
 version: "3.9"
 
-# usage:
-
-###### run local database, backend, and frontend
-#  $ docker-compose --profile local up         
-
-###### run local backend and frontend against a database in Couchbase Capella cloud
-#  $ CB_HOST=cb.{your-host}.cloud.couchbase.com  docker-compose --profile capella up
-
-###### run local database OR backend OR frontend in a mix-and match style
-#  $ docker-compose up db
-
+# -----------------------USAGE------------------------
+# Run a local database, cached backend, and frontend:
+#  $ docker compose --profile server up
+#
+# Run a local database, local backend, and frontend:
+#  $ docker compose --profile local up    
+#
+# Run a cached backend and frontend against a database
+# in Couchbase Capella:
+#  $ CB_HOST=cb.{your-host}.cloud.couchbase.com 
+#  $ docker compose --profile capella up
+#
+# Run a local backend and frontend against a database
+# in Couchbase Capella:
+#  $ CB_HOST=cb.{your-host}.cloud.couchbase.com 
+#  $ docker compose --profile local-capella up
+#
+# Start an individual service:
+#  $ docker compose up db
+#
+# OR
+#
 #  $ CB_HOST=...
 #  $ CB_USER=...
 #  $ CB_PSWD=...
-#  # docker-compose up backend
-
-#  $ docker-compose up frontend
-
-###### run developer tests against the travel-sample backend
-#  $ docker-compose up test        
+#  $ docker compose up local-backend
+#
+# OR
+#
+#  $ docker compose up frontend
+#
+# Run developer tests against the backend:
+#  $ docker compose up test
+#
+# ----------------------PROFILES----------------------
+# local - local db, backend image from Docker Hub and
+# builds the frontend from external Github repo.
+#
+# capella - assumes an existing capella database, then
+# creates the backend and frontend like `local`, with
+# capella user/pass/schema.
+#
+# local-server - local db, builds the backend image from this
+# repo and mounts the container on this directory. The
+# frontend is built from the Github repo as usual.
+#
+# local-capella - assumes an existing capella database
+# like `capella`, then builds/mounts the backend image
+# like `local`, with capella user/pass/schema.
+#
+# test - local db, builds backend image from this repo
+# and test framework from Github. No frontend.
 
 services:
   db:
@@ -34,28 +66,79 @@ services:
     container_name: couchbase-sandbox-7.0.0
     profiles:
       - local
+      - local-server
       - mix-and-match
       - test
 
-  backend:
-    build: .
+  # ---------------------BACKENDS---------------------
+  # cached-backend - Use the `sample-app-python` image
+  # from Docker Hub. The image has preinstalled all of
+  # the dependencies, and contains a copy of the code.
+  #
+  # local-backend - Builds the native Dockerfile, and
+  # mounts the container on this repository.
+  #
+  # cached-capella-backend - Is the same image as the
+  # cached-backend, but uses the Capella user/pass.
+  #
+  # local-capella-backend - Functions the same as the
+  # local-backend, but uses the Capella user/pass.
+
+  cached-backend:
+    image: tomcouch/couchbase-sample-app:python
     ports:
       - 8080:8080
+    depends_on:
+      - db
+    restart: on-failure:3
     environment:
       - CB_HOST
       - CB_USER
       - CB_PSWD
     command: -c ${CB_HOST:-db} -u ${CB_USER:-Administrator} -p ${CB_PSWD:-password}
-    volumes:
-      - .:/app
-    container_name: try-cb-api
+    container_name: cached-backend-python
     profiles:
       - local
+
+  local-backend:
+    build: .
+    ports:
+      - 8080:8080
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+    restart: on-failure:3
+    environment:
+      - CB_HOST
+      - CB_USER
+      - CB_PSWD
+    command: -c ${CB_HOST:-db} -u ${CB_USER:-Administrator} -p ${CB_PSWD:-password}
+    container_name: local-backend-python
+    profiles:
+      - local-server
       - mix-and-match
       - test
 
-  capella-backend:
+
+  cached-capella-backend:
+    image: sample-app-python
+    restart: on-failure:3
+    environment:
+      - CB_HOST
+      - CB_USER
+      - CB_PSWD
+    entrypoint: ["python", "travel.py"]
+    command: -c ${CB_HOST:-""} -u ${CB_USER:-cbdemo} -p "${CB_PSWD:-Password123!}" -s couchbases -a ?ssl=no_verify
+    ports:
+      - 8080:8080
+    container_name: cached-capella-backend-python
+    profiles:
+      - capella
+
+  local-capella-backend:
     build: .
+    restart: on-failure:3
     environment:
       - CB_HOST
       - CB_USER
@@ -66,9 +149,14 @@ services:
       - 8080:8080
     volumes:
       - .:/app
-    container_name: try-cb-api-cap
+    container_name: local-capella-backend-python
     profiles:
-      - capella
+      - local-capella
+
+  # ---------------------FRONTENDS---------------------
+  # There are 5 frontend services, all are functionally
+  # identical. The only difference is which profile the
+  # service belongs to, and which backend it depends on
 
   frontend:
     build: "https://github.com/couchbaselabs/try-cb-frontend-v2.git#7.0"
@@ -78,34 +166,56 @@ services:
     profiles:
       - mix-and-match
             
-  # frontend - Local frontend, depends on backend
-  local-frontend:
+  server-frontend:
       build: "https://github.com/couchbaselabs/try-cb-frontend-v2.git#7.0"
       depends_on:
-        - backend
+        - cached-backend
       ports:
         - 8081:8081
-      container_name: try-cb-fe
-      entrypoint: ["wait-for-it", "backend:8080", "--timeout=400", "--strict", "--", "npm", "run", "serve"]
+      container_name: server-frontend
+      entrypoint: ["wait-for-it", "cached-backend:8080", "--timeout=400", "--strict", "--", "npm", "run", "serve"]
       profiles:
         - local
 
   capella-frontend:
       build: "https://github.com/couchbaselabs/try-cb-frontend-v2.git#7.0"
       depends_on:
-        - capella-backend
+        - cached-capella-backend
       ports:
         - 8081:8081
-      container_name: try-cb-fe-cap
-      entrypoint: ["wait-for-it", "capella-backend:8080", "--timeout=400", "--strict", "--", "npm", "run", "serve"]
+      container_name: capella-frontend
+      entrypoint: ["wait-for-it", "cached-capella-backend:8080", "--timeout=400", "--strict", "--", "npm", "run", "serve"]
       profiles:
         - capella
-    
+
+  local-frontend:
+      build: "https://github.com/couchbaselabs/try-cb-frontend-v2.git#7.0"
+      depends_on:
+        - local-backend
+      ports:
+        - 8081:8081
+      container_name: server-frontend
+      entrypoint: ["wait-for-it", "local-backend:8080", "--timeout=400", "--strict", "--", "npm", "run", "serve"]
+      profiles:
+        - local-server
+
+  local-capella-frontend:
+      build: "https://github.com/couchbaselabs/try-cb-frontend-v2.git#7.0"
+      depends_on:
+        - local-capella-backend
+      ports:
+        - 8081:8081
+      container_name: capella-frontend
+      entrypoint: ["wait-for-it", "local-capella-backend:8080", "--timeout=400", "--strict", "--", "npm", "run", "serve"]
+      profiles:
+        - local-capella
+  
+  # Test service
   test:
     build: "https://github.com/couchbaselabs/try-cb-test.git#main"
     depends_on:
       - db
-      - backend
+      - local-backend
     environment:
       BACKEND_BASE_URL: http://backend:8080
     entrypoint: ["wait-for-it", "backend:8080", "--timeout=400", "--strict", "--", "bats", "travel-sample-backend.bats"]
