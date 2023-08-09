@@ -27,7 +27,7 @@ A provided [_Dockerfile_](Dockerfile) and a [_docker-compose.yml_](docker-compos
 
 To launch the full application, run this command from a terminal:
 
-    docker compose --profile server up
+    docker compose --profile local up
 
 > **_NOTE:_** You may need more than the default RAM to run the images.
 Couchbase have tested the travel-sample apps with 4.5 GB RAM configured in Docker's Preferences -> Resources -> Memory.
@@ -43,7 +43,7 @@ You should then be able to browse the UI, search for airports and get flight rou
 To end the application press <kbd>Control</kbd>+<kbd>C</kbd> in the terminal
 and wait for `docker-compose` to stop your containers.
 
-Running the application with the `server` profile pulls an image containing a prebuilt version of the backend. If you want to make changes to the backend, you can run the application with the `local` profile, detailed [here](#editing-the-backend). 
+Running the application with the `local` profile pulls an image containing a prebuilt version of the backend. If you want to make changes to the backend, you can run the application with the `local-server` profile, detailed [here](#editing-the-backend). 
 
 ## Run the Database in Capella
 
@@ -180,7 +180,7 @@ You may want to make changes to the backend, without running it manually. Couchb
 
 To start the application in this mode, run the command:
 
-    docker compose --profile server-local up
+    docker compose --profile local-server up
 
 If your database is running in Capella, run this command instead:
 
@@ -188,7 +188,7 @@ If your database is running in Capella, run this command instead:
     $ CB_USER={your-username}
     $ CB_PSWD={your-password}
 
-    docker compose --profile capella-local up
+    docker compose --profile local-capella up
 
 You still need to complete all the [setup steps](#run-the-database-in-capella).
 
