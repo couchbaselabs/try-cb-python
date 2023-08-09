@@ -85,7 +85,7 @@ services:
   # local-backend, but uses the Capella user/pass.
 
   cached-backend:
-    image: sample-app-python
+    image: tomcouch/couchbase-sample-app:python
     ports:
       - 8080:8080
     depends_on:
