@@ -35,11 +35,11 @@ version: "3.9"
 #  $ docker compose up test
 #
 # ----------------------PROFILES----------------------
-# server - local db, backend image from Docker Hub and
+# local - local db, backend image from Docker Hub and
 # builds the frontend from external Github repo.
 #
 # capella - assumes an existing capella database, then
-# creates the backend and frontend like `server`, with
+# creates the backend and frontend like `local`, with
 # capella user/pass/schema.
 #
 # local-server - local db, builds the backend image from this
@@ -65,7 +65,7 @@ services:
       - "8094"
     container_name: couchbase-sandbox-7.0.0
     profiles:
-      - server
+      - local
       - local-server
       - mix-and-match
       - test
@@ -98,7 +98,7 @@ services:
     command: -c ${CB_HOST:-db} -u ${CB_USER:-Administrator} -p ${CB_PSWD:-password}
     container_name: cached-backend-python
     profiles:
-      - server
+      - local
 
   local-backend:
     build: .
@@ -175,7 +175,7 @@ services:
       container_name: server-frontend
       entrypoint: ["wait-for-it", "cached-backend:8080", "--timeout=400", "--strict", "--", "npm", "run", "serve"]
       profiles:
-        - server
+        - local
 
   capella-frontend:
       build: "https://github.com/couchbaselabs/try-cb-frontend-v2.git#7.0"
