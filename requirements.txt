@@ -5,7 +5,7 @@ Flask-Classy==0.6.10
 itsdangerous==0.24
 Jinja2==2.11.3
 MarkupSafe==0.23
-PyJWT==1.4.2
+PyJWT==2.4.0
 pytz==2016.10
 six>=1.10.0
 Werkzeug==1.0.1
