@@ -1,28 +1,39 @@
 import argparse
 import math
 import uuid
+import jwt  # from PyJWT
 from datetime import datetime
 from random import random
-
-import couchbase.search as FT
-import couchbase.subdocument as SD
-import jwt # from PyJWT
-from couchbase.auth import PasswordAuthenticator
-from couchbase.cluster import Cluster
-from couchbase.options import ClusterOptions
-from couchbase.exceptions import *
-from couchbase.search import SearchOptions
 from flasgger import Swagger, SwaggerView
 from flask import Flask, jsonify, make_response, request
 from flask.blueprints import Blueprint
+from flask_classy import FlaskView
 from flask_cors import CORS, cross_origin
 
-# For Couchbase Server 5.0 there must be a username and password
-# User must have full access to read/write bucket/data and
-# Read access for Query and Search
-# Cluster Administrator user may be used
-# CONNSTR = 'couchbase://localhost/travel-sample?username=admin'
-# PASSWORD = 'admin123'
+# Couchbase Imports
+import couchbase.search as FT
+import couchbase.subdocument as SD
+from couchbase.cluster import Cluster
+from couchbase.options import ClusterOptions, SearchOptions
+from couchbase.auth import PasswordAuthenticator
+from couchbase.exceptions import *
+
+# From Couchbase Server 5.0 onward, there must be a username and password.
+# User must have full access to read/write bucket/data and read access for
+# Query and Search.
+# The default username and password are set in `wait-for-couchbase.sh`
+# -----------LOCAL-----------
+# CONNSTR = 'couchbase://db'
+# USERNAME = 'Administrator'
+# PASSWORD = 'password'
+# ----------CAPELLA----------
+# CONNSTR = 'couchbases://db'
+# USERNAME = 'cbdemo'
+# PASSWORD = 'Password123!'
+# ---------------------------
+
+# Editing this file? Replicate your changes in the 'sample-app.py' file in
+# the 'docs-sdk-python' repo to have these changes appear in the tutorial.
 
 JWT_SECRET = 'cbtravelsample'
 
@@ -31,27 +42,28 @@ parser.add_argument('-c', '--cluster', help='Connection String i.e. localhost', 
 parser.add_argument('-s', '--scheme', help='couchbase or couchbases', default='couchbase')
 parser.add_argument('-a', '--connectargs', help="?any_additional_args", default="")
 parser.add_argument('-u', '--user', help='User with access to bucket')
-parser.add_argument('-p', '--password',
-                    help='Password of user with access to bucket')
+parser.add_argument('-p', '--password', help='Password of user with access to bucket')
+
 args = parser.parse_args()
+
+# Init CB connection parameters
 
 if not args.cluster:
   raise ConnectionError("No value for CB_HOST set!")
+if not args.user:
+    raise ConnectionError("No value for CB_USER set!")
+if not args.password:
+    raise ConnectionError("No value for CB_PSWD set!")
 
-CONNSTR = "{scheme}://{cluster}{connectargs}".format(**vars(args))
+if ("couchbases://" in args.cluster) or ("couchbase://" in args.cluster):
+	CONNSTR = f"{args.cluster}{args.connectargs}"
+else:
+	CONNSTR = f"{args.scheme}://{args.cluster}{args.connectargs}"
+        
 authenticator = PasswordAuthenticator(args.user, args.password)
-
-# get a reference to our cluster
-options = ClusterOptions(authenticator)
-
-# Sets a pre-configured profile called "wan_development" to help avoid latency issues
-# when accessing Capella from a different Wide Area Network
-# or Availability Zone(e.g. your laptop).
-if args.scheme == 'couchbases':
-  options.apply_profile('wan_development')
-
 print("Connecting to: " + CONNSTR)
 
+# Initialise the web app
 app = Flask(__name__)
 app.config.from_object(__name__)
 app.config['SWAGGER'] = {
@@ -114,7 +126,7 @@ api = Blueprint("api", __name__)
 
 CORS(app, headers=['Content-Type', 'Authorization'])
 
-
+# The default API endpoint
 @app.route('/')
 def index():
     """Returns the index page
@@ -139,7 +151,6 @@ def index():
 
 def lowercase(key):
     return key.lower()
-
 
 class AirportView(SwaggerView):
     """Airport class for airport objects in the database"""
@@ -167,53 +178,63 @@ class AirportView(SwaggerView):
                   schema:
                     $ref: '#/components/schemas/ResultList' 
                   example:
-                    context: ["A description of a N1QL operation"]
+                    context: ["A description of a SQL++ operation"]
                     data: [{"airportname": "San Francisco Intl"}]
         """
 
-        querytype = "N1QL query - scoped to inventory: "
+        queryType = "SQL++ query - scoped to inventory: "
+        partialAirportName = request.args['search']
 
-        querystr = request.args['search']
-        queryprep = "SELECT airportname FROM `travel-sample`.inventory.airport WHERE "
-        sameCase = querystr == querystr.lower() or querystr == querystr.upper()
-        if sameCase and len(querystr) == 3:
-            queryprep += "faa=$1"
-            queryargs = [querystr.upper()]
-        elif sameCase and len(querystr) == 4:
-            queryprep += "icao=$1"
-            queryargs = [querystr.upper()]
+        queryPrep = "SELECT airportname FROM `travel-sample`.inventory.airport WHERE "
+        sameCase = partialAirportName == partialAirportName.lower() or partialAirportName == partialAirportName.upper() #bool
+
+        # The code does some guesswork to determine what the user is typing in.
+        # This is based on string length and capitalization. If it believes the
+        # string is an FAA or ICAO code, it queries for a match in the 'faa' or
+        # 'icao' field. Otherwise, the code assumes a partial airport name, and
+        # queries for a substring match at the start of the 'airportname' field
+
+        if sameCase and len(partialAirportName) == 3:
+            queryPrep += "faa=$1"
+            queryArgs = [partialAirportName.upper()]
+        elif sameCase and len(partialAirportName) == 4:
+            queryPrep += "icao=$1"
+            queryArgs = [partialAirportName.upper()]
         else:
-            queryprep += "POSITION(LOWER(airportname), $1) = 0"
-            queryargs = [querystr.lower()]
+            queryPrep += "POSITION(LOWER(airportname), $1) = 0"
+            queryArgs = [partialAirportName.lower()]
 
-        res = cluster.query(queryprep, *queryargs)
-        airportslist = [x for x in res]
-        context = [querytype + queryprep]
-        response = make_response(
-            jsonify({"data": airportslist, "context": context}))
+        results = cluster.query(queryPrep, *queryArgs)
+        airports = [x for x in results]
+
+        # 'context' is returned to the frontend to be shown in the Query Log
+
+        context = [queryType + queryPrep]
+
+        response = make_response(jsonify({"data": airports, "context": context}))
         return response
 
 
 class FlightPathsView(SwaggerView):
     """ FlightPath class for computed flights between two airports FAA codes"""
 
-    @api.route('/flightPaths/<fromloc>/<toloc>', methods=['GET', 'OPTIONS'])
+    @api.route('/flightPaths/<fromLoc>/<toLoc>', methods=['GET', 'OPTIONS'])
     @cross_origin(supports_credentials=True)
-    def flightPaths(fromloc, toloc):
+    def flightPaths(fromLoc, toLoc):
         """
         Return flights information, cost and more for a given flight time and date
         ---
         tags:
         - flightPaths
         parameters:
-            - name: fromloc
+            - name: fromLoc
               in: path
               required: true
               schema:
                 type: string
               example: San Francisco Intl
               description: Airport name for beginning route
-            - name: toloc
+            - name: toLoc
               in: path
               required: true
               schema:
@@ -236,7 +257,7 @@ class FlightPathsView(SwaggerView):
                   schema:
                     $ref: '#/components/schemas/ResultList'
                   example:
-                    context: ["N1QL query - scoped to inventory: SELECT faa as fromAirport FROM `travel-sample`.inventory.airport
+                    context: ["SQL++ query - scoped to inventory: SELECT faa as fromAirport FROM `travel-sample`.inventory.airport
                     WHERE airportname = $1 UNION SELECT faa as toAirport FROM `travel-sample`.inventory.airport WHERE airportname = $2"]
                     data: [{
                               "destinationairport": "LAX",
@@ -250,45 +271,70 @@ class FlightPathsView(SwaggerView):
                          }]
         """
 
-        querytype = "N1QL query - scoped to inventory: "
+        # 'context' is returned to the frontend to be shown in the Query Log
 
-        queryleave = convdate(request.args['leave'])
-        queryprep = "SELECT faa as fromAirport FROM `travel-sample`.inventory.airport \
-                    WHERE airportname = $1 \
-                    UNION SELECT faa as toAirport FROM `travel-sample`.inventory.airport \
-                    WHERE airportname = $2"
-        res = cluster.query(queryprep, fromloc, toloc)
-        flightpathlist = [x for x in res]
-        context = [querytype + queryprep]
+        queryType = "SQL++ query - scoped to inventory: "
+        context = []
 
-        # Extract the 'fromAirport' and 'toAirport' values.
-        queryfrom = next(x['fromAirport']
-                         for x in flightpathlist if 'fromAirport' in x)
-        queryto = next(x['toAirport']
-                       for x in flightpathlist if 'toAirport' in x)
+        faaQueryPrep = "SELECT faa as fromAirport FROM `travel-sample`.inventory.airport \
+                        WHERE airportname = $1 \
+                        UNION SELECT faa as toAirport FROM `travel-sample`.inventory.airport \
+                        WHERE airportname = $2"
+        
+        faaResults = cluster.query(faaQueryPrep, fromLoc, toLoc)
 
-        queryroutes = "SELECT a.name, s.flight, s.utc, r.sourceairport, r.destinationairport, r.equipment \
+        # The query results are an iterable object consisting of dicts with the
+        # fields from each doc. The results from the query will be formatted as
+        # [{'fromAirport':<faa code>}, {'toAirport':<faa code>}]
+        # Note, results are unordered, so the ordering above may be inaccurate.
+        # The iterable therefore needs to be flattened so the correct field can
+        # be extracted.
+        
+        flightPathDict = {}
+        for result in faaResults:
+            flightPathDict.update(result)
+
+        # flightPathDict will be formatted as
+        # {'fromAirport':<faa code>, 'toAirport':<faa code>}
+
+        queryFrom = flightPathDict['fromAirport']
+        queryTo = flightPathDict['toAirport']
+
+        context.append(queryType + faaQueryPrep)
+
+        routeQueryPrep = "SELECT a.name, s.flight, s.utc, r.sourceairport, r.destinationairport, r.equipment \
                         FROM `travel-sample`.inventory.route AS r \
                         UNNEST r.schedule AS s \
                         JOIN `travel-sample`.inventory.airline AS a ON KEYS r.airlineid \
                         WHERE r.sourceairport = $fromfaa AND r.destinationairport = $tofaa AND s.day = $dayofweek \
                         ORDER BY a.name ASC;"
 
-        # http://localhost:8080/api/flightPaths/Nome/Teller%20Airport?leave=01/01/2016
-        # should produce query with OME, TLA faa codes
-        resroutes = cluster.query(
-            queryroutes, fromfaa=queryfrom, tofaa=queryto, dayofweek=queryleave)
-        routelist = []
-        for x in resroutes:
-            x['flighttime'] = math.ceil(random() * 8000)
-            x['price'] = math.ceil(x['flighttime'] / 8 * 100) / 100
-            routelist.append(x)
+        # The date provided by the frontend needs to be converted into a number
+        # between 0 and 6 (representing the days of the week) in order to match
+        # the format in the database.
 
-        # Include second query in context
-        context.append(querytype + queryroutes)
+        flightDay = convdate(request.args['leave'])
+        routeResults = cluster.query(routeQueryPrep, 
+                                     fromfaa=queryFrom, 
+                                     tofaa=queryTo, 
+                                     dayofweek=flightDay)
 
-        response = make_response(
-            jsonify({"data": routelist, "context": context}))
+        # The 'QueryResult' object can only be iterated over once - any further
+        # attempts to do so will result in an 'AlreadyQueried' exception. It is
+        # good practice to move the results into another data structure such as
+        # a list.
+        # Price data is not a part of the sample dataset, so a random number is
+        # picked and added to the result dict.
+
+        routesList = []
+        for route in routeResults:
+            route['price'] = math.ceil(random() * 500) + 250
+            routesList.append(route)
+
+        # Include the second routes query in the context
+        context.append(queryType + routeQueryPrep)
+
+        response = make_response(jsonify({"data": routesList, "context": context}))
         return response
 
 
@@ -342,34 +388,36 @@ class TenantUserView(SwaggerView):
                 application/json:
                     schema: 
                       $ref: '#/components/schemas/Error'
-        """
-        agent = lowercase(tenant)
-        req = request.get_json()
-        user = req['user']
-        userdockey = lowercase(user)
-        password = req['password']
+        """ 
 
+        requestBody = request.get_json()
+        user = requestBody['user']
+        providedPassword = requestBody['password']
+
+        userDocumentKey = lowercase(user)
+
+        agent = lowercase(tenant)
         scope = bucket.scope(agent)
         users = scope.collection('users')
 
-        querytype = "KV get - scoped to {name}.users: for password field in document ".format(
-            name=scope.name)
+        queryType = f"KV get - scoped to {scope.name}.users: for password field in document "
+
+        # Perform a sub-document GET request for the 'password' field on a
+        # document with the provided username as the key.
         try:
-            doc_pass = users.lookup_in(userdockey, (
+            documentPassword = users.lookup_in(userDocumentKey, (
                 SD.get('password'),
             )).content_as[str](0)
 
-            if doc_pass != password:
+            if documentPassword != providedPassword:
                 return abortmsg(401, "Password does not match")
 
         except DocumentNotFoundException:
-            print("User {} item does not exist".format(user))
-        except CouchbaseTransientException:
-            print("Transient error received - has Couchbase stopped running?")
-        except NetworkException:
-            print("Network error received - is Couchbase Server running on this host?")
+            print(f"User {user} item does not exist", flush=True)
+        except AmbiguousTimeoutException or UnAmbiguousTimeoutException:
+            print("Request timed out - has Couchbase stopped running?", flush=True)
         else:
-            return jsonify({'data': {'token': genToken(user)}, 'context': [querytype + user]})
+            return jsonify({'data': {'token': genToken(user)}, 'context': [queryType + user]})
 
         return abortmsg(401, "Failed to get user data")
 
@@ -421,30 +469,32 @@ class TenantUserView(SwaggerView):
                     schema: 
                       $ref: '#/components/schemas/Error'
         """
-        agent = lowercase(tenant)
-        req = request.get_json()
-        user = req['user']
-        userdockey = lowercase(user)
-        password = req['password']
+        
+        requestBody = request.get_json()
+        user = requestBody['user']
+        password = requestBody['password']
 
+        userDocumentKey = lowercase(user)
+
+        agent = lowercase(tenant)
         scope = bucket.scope(agent)
         users = scope.collection('users')
 
-        querytype = "KV insert - scoped to {name}.users: document ".format(
-            name=scope.name)
+        queryType = f"KV insert - scoped to {scope.name}.users: document "
+
         try:
-            users.insert(userdockey, {'username': user, 'password': password})
-            respjson = jsonify(
-                {'data': {'token': genToken(user)}, 'context': [querytype + user]})
-            response = make_response(respjson)
+            users.insert(userDocumentKey, {'username': user, 'password': password})
+            responseJSON = jsonify(
+                {'data': {'token': genToken(user)}, 'context': [queryType + user]})
+            response = make_response(responseJSON)
             return response, 201
 
         except DocumentExistsException:
-            print("User {} item already exists".format(user))
+            print(f"User {user} item already exists", flush=True)
             return abortmsg(409, "User already exists")
         except Exception as e:
             print(e)
-            return abortmsg(500, "Failed to save user")
+            return abortmsg(500, "Failed to save user", flush=True)
 
     @api.route('/tenants/<tenant>/user/<username>/flights', methods=['GET', 'OPTIONS'])
     @cross_origin(supports_credentials=True)
@@ -516,29 +566,38 @@ class TenantUserView(SwaggerView):
         users = scope.collection('users')
         flights = scope.collection('bookings')
 
+        # HTTP token authentication
         bearer = request.headers['Authorization']
         if not auth(bearer, username):
             return abortmsg(401, 'Username does not match token username: ' + username)
+        
         try:
-            userdockey = lowercase(username)
+            userDocumentKey = lowercase(username)
             
-            rv = users.lookup_in(
-              userdockey,
+            # The lookup does both a 'get' and an 'exists' in the same op. This
+            # avoids having to handle a 'PathNotFoundException'.
+
+            lookupResult = users.lookup_in(
+              userDocumentKey,
               [
                 SD.get('bookings'),
                 SD.exists('bookings')
               ])
-            booked_flights = rv.content_as[list](0) if rv.exists(1) else []
+            
+            bookedFlightKeys = []
+            if lookupResult.exists(1):
+                bookedFlightKeys = lookupResult.content_as[list](0)
+
+            # GET requests are now performed to get the content of the bookings
 
             rows = []
-            for key in booked_flights:
+            for key in bookedFlightKeys:
                 rows.append(flights.get(key).content_as[dict])
-            print(rows)
-            querytype = "KV get - scoped to {name}.users: for {num} bookings in document ".format(
-                name=scope.name, num=len(booked_flights))
-            respjson = jsonify({"data": rows, "context": [querytype + userdockey]})
-            response = make_response(respjson)
+
+            queryType = f"KV get - scoped to {scope.name}.users: for {len(bookedFlightKeys)} bookings in document "
+            response = make_response(jsonify({"data": rows, "context": [queryType + userDocumentKey]}))
             return response
+        
         except DocumentNotFoundException:
             return abortmsg(401, "User does not exist")
 
@@ -613,26 +672,36 @@ class TenantUserView(SwaggerView):
 
         scope = bucket.scope(agent)
         users = scope.collection('users')
-        flights = scope.collection('bookings')
+        bookings = scope.collection('bookings')
 
+        queryType = f"KV update - scoped to {scope.name}.users: for bookings field in document "
+
+        # HTTP token authentication
         bearer = request.headers['Authorization']
         if not auth(bearer, username):
             return abortmsg(401, 'Username does not match token username: ' + username)
+        
+        # Add the flight details to a new document in the bookings collection.
+
         try:
-            newflight = request.get_json()['flights'][0]
-            flight_id = str(uuid.uuid4())
-            flights.upsert(flight_id, newflight)
+            flightData = request.get_json()['flights'][0]
+            flightID = str(uuid.uuid4())
+            bookings.upsert(flightID, flightData)
+
         except Exception as e:
-            print(e)
+            print(e, flush=True)
             return abortmsg(500, "Failed to add flight data")
+        
+        # The booking is document not associated with a user. A Sub-Document op
+        # is performed to add the key of the booking document to the 'bookings'
+        # field in the given user's document.
+        
         try:
-            users.mutate_in(user, (SD.array_append('bookings',
-                                                   flight_id, create_parents=True),))
-            querytype = "KV update - scoped to {name}.users: for bookings field in document ".format(
-                name=scope.name)
-            resjson = {'data': {'added': [newflight]},
-                       'context': [querytype + user]}
-            return make_response(jsonify(resjson))
+            users.mutate_in(user, (SD.array_append('bookings', flightID, create_parents=True),))
+            resultJSON = {'data': {'added': [flightData]},
+                          'context': [queryType + user]}
+            return make_response(jsonify(resultJSON))
+        
         except DocumentNotFoundException:
             return abortmsg(401, "User does not exist")
         except Exception:
@@ -688,10 +757,10 @@ class HotelView(SwaggerView):
                               "name": "Best Western Americania"
                             }
                          ]
-        """
-        qp = FT.ConjunctionQuery()
+        """ 
+        queryPrep = FT.ConjunctionQuery()
         if location != '*' and location != "":
-            qp.conjuncts.append(
+            queryPrep.conjuncts.append(
                 FT.DisjunctionQuery(
                     FT.MatchPhraseQuery(location, field='country'),
                     FT.MatchPhraseQuery(location, field='city'),
@@ -700,30 +769,69 @@ class HotelView(SwaggerView):
                 ))
 
         if description != '*' and description != "":
-            qp.conjuncts.append(
+            queryPrep.conjuncts.append(
                 FT.DisjunctionQuery(
                     FT.MatchPhraseQuery(description, field='description'),
                     FT.MatchPhraseQuery(description, field='name')
                 ))
+        
+        # Attempting to run a compound query with no sub-queries will result in
+        # a 'NoChildrenException'.
+
+        if len(queryPrep.conjuncts) == 0:
+            queryType = "FTS search rejected - no search terms were provided"
+            response = {'data': [], 'context': [queryType]}
+            return jsonify(response)
+            
+        searchRows = cluster.search_query('hotels-index', 
+                                          queryPrep, 
+                                          SearchOptions(limit=100))
+
+        # The 'SearchResult' object returned by the search does not contain the
+        # full document, consisting of just matches and metadata. This metadata
+        # includes the document key, so sub-document operations retrieve all of
+        # the fields needed by the frontend.
+
+        allResults = []
+        addressFields = ['address', 'city', 'state', 'country']
+        dataFields = ['name', 'description']
 
         scope = bucket.scope('inventory')
         hotel_collection = scope.collection('hotel')
-        q = cluster.search_query('hotels-index', qp, SearchOptions(limit=100))
-        results = []
-        cols = ['address', 'city', 'state', 'country', 'name', 'description']
-        for row in q:
-            subdoc = hotel_collection.lookup_in(
-                row.id, tuple(SD.get(x) for x in cols))
-            # Get the address fields from the document, if they exist
-            addr = ', '.join(subdoc.content_as[str](c) for c in cols[:4]
-                             if subdoc.content_as[str](c) != "None")
-            subresults = dict((c, subdoc.content_as[str](c)) for c in cols[4:])
-            subresults['address'] = addr
-            results.append(subresults)
 
-        querytype = "FTS search - scoped to: {name}.hotel within fields {fields}".format(
-            name=scope.name, fields=','.join(cols))
-        response = {'data': results, 'context': [querytype]}
+        for hotel in searchRows:
+            
+            # The lookup will succeed even if the document does not contain all
+            # fields. Attempting to read these none existent fields will result
+            # in a 'DocumentNotFoundException'.
+
+            hotelFields = hotel_collection.lookup_in(
+                hotel.id, [SD.get(x) for x in [*addressFields, *dataFields]])
+
+            # Concatenates the first 4 fields to form the address. 
+
+            hotelAddress = []
+            for x in range(len(addressFields)):
+                try:
+                    hotelAddress.append(hotelFields.content_as[str](x))
+                except:
+                    pass
+            hotelAddress = ', '.join(hotelAddress)
+
+            # Extracts the other fields.
+
+            hotelData = {}
+            for x, field in enumerate(dataFields):
+                try:    
+                    hotelData[field] = hotelFields.content_as[str](x+len(addressFields))
+                except:
+                    pass
+                
+            hotelData['address'] = hotelAddress
+            allResults.append(hotelData)
+
+        queryType = f"FTS search - scoped to: {scope.name}.hotel within fields {','.join([*addressFields, *dataFields])}"
+        response = {'data': allResults, 'context': [queryType]}
         return jsonify(response)
 
 
